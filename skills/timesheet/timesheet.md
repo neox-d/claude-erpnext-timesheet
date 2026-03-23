@@ -26,10 +26,7 @@ python3 "$CLAUDE_PLUGIN_ROOT/scripts/parse_logs.py" --config ~/.claude/timesheet
 
 This returns a JSON array of messages `[{role, text, cwd, timestamp}]`. Store this as your context.
 
-Also read work_hours from config:
-```bash
-python3 -c "import json; c=json.load(open('$HOME/.claude/timesheet.json')); print(c['work_hours'])"
-```
+Parse `work_hours` from the JSON output already stored in Step 2. (It is one of the required fields guaranteed to be present after successful config validation.)
 
 ## Step 3: Synthesize Task Entries
 
@@ -84,7 +81,9 @@ Handle the user's response:
 
 ### [a] Approve
 If the entry list is empty, say: `No entries to submit. Use [+] to add entries first.` Re-display menu.
-Otherwise proceed to Step 6.
+Otherwise, check if total hours equals work_hours. If there is a mismatch, show:
+`Warning: total hours = Xh (expected Yh). Submit anyway? [y/n]`
+If `n`, re-display TUI. If `y` (or if no mismatch), proceed to Step 6.
 
 ### [e] Edit
 Ask: `Which entry number?`
@@ -94,9 +93,9 @@ For the chosen entry, prompt each field with its current value in brackets (pres
   Hours [current value]:
   Activity type [current value]:
 ```
-After edit, check if total hours still equals work_hours. If not:
-`Warning: total hours = Xh (expected Yh). Submit anyway? [y/n]`
-Re-display TUI.
+After edit, check if total hours still equals work_hours. If not, show:
+`Warning: total hours = Xh (expected Yh).`
+This is informational only — do not submit. Re-display TUI so the user can adjust further or choose [a] to submit with the mismatch acknowledged.
 
 ### [d] Delete
 Ask: `Which entry number?`
@@ -119,9 +118,12 @@ Say: `Timesheet not submitted.` Stop.
 Tell the user: `Submitting timesheet...`
 
 Write the approved entries to a temp file and submit:
+
+Substitute `ENTRIES_PLACEHOLDER` with the Python literal for the approved entries list (e.g. `[{"description": "...", "hours": 2.0, "activity_type": "Development"}, ...]`). Serialize using `json.dumps()` if constructing dynamically.
+
 ```bash
 ENTRIES_FILE=$(mktemp /tmp/timesheet-entries-XXXXXX.json)
-# write the JSON array of approved entries to $ENTRIES_FILE
+python3 -c "import json, sys; json.dump(ENTRIES_PLACEHOLDER, open(sys.argv[1], 'w'))" "$ENTRIES_FILE"
 python3 "$CLAUDE_PLUGIN_ROOT/scripts/erpnext_client.py" \
   --config ~/.claude/timesheet.json \
   --action submit \
@@ -135,4 +137,4 @@ If the command succeeds (exit 0), say:
 `Timesheet submitted. Reference: <name from output>`
 
 If it fails, show the full error output and ask: `Retry? [y/n]`
-If `y`, re-run the submit command. If `n`, stop.
+If `y`, re-run the submit command (maximum 3 total attempts). After 3 failed attempts, stop and tell the user to check their ERPNext connection and try again later. If `n`, stop.
