@@ -74,9 +74,6 @@ def parse_content_blocks(content) -> str:
 
 def get_today_messages(tz=None) -> list:
     projects_dir = Path.home() / ".claude" / "projects"
-    # Allow tests to override by pointing home to a dir that has projects/ directly
-    if not projects_dir.exists():
-        projects_dir = Path.home() / "projects"
     if not projects_dir.exists():
         return []
 

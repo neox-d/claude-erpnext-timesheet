@@ -100,7 +100,7 @@ FIXTURE_PATH = Path(__file__).parent / "fixtures" / "sample_session.jsonl"
 
 def test_get_today_messages_filters_today(tmp_path, monkeypatch):
     """Messages from today are returned; yesterday and non-user/assistant are skipped."""
-    proj_dir = tmp_path / "projects" / "myproject"
+    proj_dir = tmp_path / ".claude" / "projects" / "myproject"
     proj_dir.mkdir(parents=True)
     session_file = proj_dir / "abc-123.jsonl"
     session_file.write_text(FIXTURE_PATH.read_text())
@@ -120,7 +120,7 @@ def test_get_today_messages_filters_today(tmp_path, monkeypatch):
 
 
 def test_get_today_messages_sorted_by_timestamp(tmp_path, monkeypatch):
-    proj_dir = tmp_path / "projects" / "myproject"
+    proj_dir = tmp_path / ".claude" / "projects" / "myproject"
     proj_dir.mkdir(parents=True)
     session_file = proj_dir / "abc-123.jsonl"
     session_file.write_text(FIXTURE_PATH.read_text())
