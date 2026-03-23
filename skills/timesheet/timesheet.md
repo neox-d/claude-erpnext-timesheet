@@ -13,7 +13,7 @@ Check if `~/.claude/timesheet.json` exists:
 test -f ~/.claude/timesheet.json && echo "EXISTS" || echo "MISSING"
 ```
 
-If `MISSING`, run the interactive setup wizard:
+If `EXISTS`, skip to Step 1. If `MISSING`, run the interactive setup wizard:
 
 ### Setup Wizard
 
@@ -116,8 +116,6 @@ Where `CONFIG_PLACEHOLDER` is the Python dict literal for:
 Tell the user: `Setup complete! Config saved to ~/.claude/timesheet.json`
 
 Then continue to Step 1 (config validation) to confirm everything is in order.
-
-If `EXISTS`, skip to Step 1.
 
 ## Step 1: Validate Config
 
