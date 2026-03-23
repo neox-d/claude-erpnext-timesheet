@@ -58,16 +58,21 @@ def _next_month_end(today: date) -> str:
     return date(next_year, next_month, last_day).isoformat()
 
 
-def extend_project_end_date(config: dict, project: str, new_date: str) -> dict:
-    """Extend a project's expected end date."""
-    base = config["url"].rstrip("/")
-    session = _login(config)
+def _extend_project(session: requests.Session, base: str, project: str, new_date: str) -> None:
+    """PUT extend on existing session. Raises HTTPError on failure."""
     resp = session.request(
         "PUT",
         f"{base}/api/resource/Project/{project}",
         json={"expected_end_date": new_date},
     )
     resp.raise_for_status()
+
+
+def extend_project_end_date(config: dict, project: str, new_date: str) -> dict:
+    """Extend a project's expected end date."""
+    base = config["url"].rstrip("/")
+    session = _login(config)
+    _extend_project(session, base, project, new_date)
     return {"success": True}
 
 
@@ -101,12 +106,7 @@ def create_task(config: dict, task_input: dict) -> tuple[str, list[str]]:
     if resp.status_code == 417 and resp.json().get("exc_type") == "InvalidDates":
         # Auto-extend project end date to end of next month
         new_end = _next_month_end(date.today())
-        ext_resp = session.request(
-            "PUT",
-            f"{base}/api/resource/Project/{config['project']}",
-            json={"expected_end_date": new_end},
-        )
-        ext_resp.raise_for_status()
+        _extend_project(session, base, doc["project"], new_end)
         notes.append(f"Note: project end date extended to {new_end}")
 
         # Retry once

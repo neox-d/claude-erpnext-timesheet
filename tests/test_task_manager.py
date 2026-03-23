@@ -95,7 +95,7 @@ def test_create_task_success():
     assert notes == []
 
 
-def test_create_task_auto_extends_on_invalid_dates(capsys):
+def test_create_task_auto_extends_on_invalid_dates():
     """create_task() extends project end date when ERPNext returns InvalidDates, then retries."""
     task_input = {
         "subject": "Build feature",
@@ -127,6 +127,42 @@ def test_create_task_auto_extends_on_invalid_dates(capsys):
 
     assert name == "TASK-999"
     assert any("extended" in n for n in notes)
+
+
+def test_create_task_auto_extends_task_project_not_config_project():
+    """Auto-extend targets task_input's project, not config's default project."""
+    task_input = {
+        "subject": "Build feature",
+        "description": "Details",
+        "project": "PROJ-DIFFERENT",  # different from config["project"] = "PROJ-001"
+        "hours": 4.0,
+        "date": "2026-03-24",
+    }
+    invalid_dates_resp = MagicMock()
+    invalid_dates_resp.status_code = 417
+    invalid_dates_resp.ok = False
+    invalid_dates_resp.json.return_value = {"exc_type": "InvalidDates"}
+    invalid_dates_resp.raise_for_status.side_effect = requests.HTTPError(response=invalid_dates_resp)
+
+    extend_resp = mock_response(200, {"data": {}})
+    success_resp = mock_response(200, {"data": {"name": "TASK-999"}})
+
+    with patch("scripts.task_manager.requests.Session") as mock_cls:
+        session = MagicMock()
+        mock_cls.return_value = session
+        session.post.return_value = mock_response(200)
+        session.request.side_effect = [
+            invalid_dates_resp,
+            extend_resp,
+            success_resp,
+        ]
+
+        name, notes = create_task(BASE_CONFIG, task_input)
+
+    # The extend PUT must target PROJ-DIFFERENT, not PROJ-001
+    extend_call = session.request.call_args_list[1]
+    assert "PROJ-DIFFERENT" in extend_call.args[1]
+    assert name == "TASK-999"
 
 
 def test_create_task_exits_nonzero_on_unrecoverable_error():
