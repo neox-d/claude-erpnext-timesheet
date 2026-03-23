@@ -1,0 +1,6 @@
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Fix the login bug in auth.py"}]},"timestamp":"2026-03-23T09:15:00.000Z","cwd":"/home/user/myproject","sessionId":"abc-123"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I'll fix the login bug. The issue is in the session handling."},{"type":"tool_use","id":"t1","name":"Read","input":{}}]},"timestamp":"2026-03-23T09:15:30.000Z","cwd":"/home/user/myproject","sessionId":"abc-123"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Now add unit tests for the fix"}]},"timestamp":"2026-03-23T10:30:00.000Z","cwd":"/home/user/myproject","sessionId":"abc-123"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I'll write unit tests for the auth fix."}]},"timestamp":"2026-03-23T10:30:45.000Z","cwd":"/home/user/myproject","sessionId":"abc-123"}
+{"type":"progress","data":{"type":"hook_progress"},"timestamp":"2026-03-23T09:14:00.000Z","cwd":"/home/user/myproject","sessionId":"abc-123"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Old message from yesterday"}]},"timestamp":"2026-03-22T14:00:00.000Z","cwd":"/home/user/myproject","sessionId":"abc-123"}
