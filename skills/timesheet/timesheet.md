@@ -6,6 +6,89 @@ Automate daily ERPNext timesheet filling from your Claude conversation history.
 
 When this skill is invoked, follow these steps exactly. Do not skip steps.
 
+## Step 0: First-Time Setup
+
+Check if `~/.claude/timesheet.json` exists:
+```bash
+test -f ~/.claude/timesheet.json && echo "EXISTS" || echo "MISSING"
+```
+
+If `MISSING`, run the interactive setup wizard:
+
+### Setup Wizard
+
+Tell the user:
+```
+Welcome! Let's connect to your ERPNext instance.
+This will create ~/.claude/timesheet.json with your credentials and preferences.
+Note: credentials are stored in plaintext — ensure your home directory is appropriately secured.
+```
+
+Ask the following questions one at a time:
+
+1. **ERPNext URL** — e.g. `https://yourcompany.erpnext.com`
+2. **Username** — your ERPNext login email
+3. **Password**
+
+Then test login and discover configuration:
+```bash
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/setup.py" \
+  --action discover \
+  --url "<URL>" \
+  --username "<USERNAME>" \
+  --password "<PASSWORD>"
+```
+
+If the command fails, show the error and ask the user to correct their credentials. Re-ask steps 1–3.
+
+If it succeeds, the output contains `employee`, `company`, `projects` (list), `activity_types` (list).
+
+Present the discovered values to the user:
+```
+Found:
+  Employee:  <employee>
+  Company:   <company>
+  Projects:  <list>
+  Activity types: <list>
+```
+
+Ask:
+4. **Default project** — show the discovered list, ask user to pick one (or type a project name if not listed)
+5. **Default activity type** — show the discovered list, ask user to pick one
+6. **Work hours per day** — default `8`
+7. **Workday start time** — default `09:00`
+8. **Timezone** — default is your system timezone; common options: `Asia/Kolkata`, `UTC`, `America/New_York`
+
+Build the config JSON and write it:
+```bash
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/setup.py" \
+  --action write-config \
+  --config-data '<JSON>' \
+  --config-out ~/.claude/timesheet.json
+```
+
+Where `<JSON>` is the Python literal / JSON string for:
+```json
+{
+  "url": "<URL>",
+  "username": "<USERNAME>",
+  "password": "<PASSWORD>",
+  "employee": "<discovered employee>",
+  "company": "<discovered company>",
+  "project": "<chosen project>",
+  "default_activity": "<chosen activity type>",
+  "work_hours": <work_hours>,
+  "start_time": "<start_time>",
+  "timezone": "<timezone>"
+}
+```
+
+Tell the user: `Setup complete! Config saved to ~/.claude/timesheet.json`
+
+Then continue to Step 1 (config validation) to confirm everything is in order.
+
+If `EXISTS`, skip to Step 1.
+
 ## Step 1: Validate Config
 
 Run:
