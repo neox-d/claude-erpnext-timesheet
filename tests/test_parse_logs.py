@@ -141,3 +141,27 @@ def test_get_today_messages_no_projects_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     messages = get_today_messages()
     assert messages == []
+
+
+def test_get_today_messages_skips_old_mtime_files(tmp_path, monkeypatch):
+    """Files with mtime before today are skipped (mtime pre-filter)."""
+    proj_dir = tmp_path / ".claude" / "projects" / "myproject"
+    proj_dir.mkdir(parents=True)
+    session_file = proj_dir / "abc-123.jsonl"
+    session_file.write_text(FIXTURE_PATH.read_text())
+
+    # Set the file's mtime to yesterday
+    import time
+    yesterday_ts = time.time() - 86400
+    os.utime(session_file, (yesterday_ts, yesterday_ts))
+
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    fixed_date = date(2026, 3, 23)
+    with patch("scripts.parse_logs.date") as mock_date:
+        mock_date.today.return_value = fixed_date
+        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+        messages = get_today_messages(tz=timezone.utc)
+
+    # File has old mtime so it should be skipped entirely
+    assert messages == []
