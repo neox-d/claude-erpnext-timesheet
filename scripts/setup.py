@@ -17,8 +17,8 @@ import requests
 
 def discover(url: str, username: str, password: str) -> dict:
     """
-    Login to ERPNext and discover employee, company, projects, and activity types.
-    Returns dict with keys: employee, company, projects (list), activity_types (list).
+    Login to ERPNext and discover employee, company, projects, activity types, and full name.
+    Returns dict with keys: employee, company, projects, activity_types, full_name.
     Raises requests.HTTPError on login failure.
     Raises ValueError if no employee record found for the user.
     """
@@ -29,7 +29,7 @@ def discover(url: str, username: str, password: str) -> dict:
     resp = session.post(f"{base}/api/method/login", data={"usr": username, "pwd": password})
     resp.raise_for_status()
 
-    # Discover employee (filter by user_id = username)
+    # Discover employee
     resp = session.get(
         f"{base}/api/resource/Employee",
         params={
@@ -61,11 +61,24 @@ def discover(url: str, username: str, password: str) -> dict:
     resp.raise_for_status()
     activity_types = [a["name"] for a in resp.json().get("data", [])]
 
+    # Fetch user's full name for identity confirmation
+    encoded_username = quote(username, safe="")
+    try:
+        resp = session.get(
+            f"{base}/api/resource/User/{encoded_username}",
+            params={"fields": json.dumps(["full_name"])},
+        )
+        resp.raise_for_status()
+        full_name = resp.json().get("data", {}).get("full_name") or username
+    except requests.RequestException:
+        full_name = username
+
     result = {
         "employee": employee,
         "company": company,
         "projects": projects,
         "activity_types": activity_types,
+        "full_name": full_name,
     }
     if len(projects) == 50:
         result["projects_truncated"] = True

@@ -22,19 +22,18 @@ def mock_response(status_code=200, json_data=None):
 # --- discover ---
 
 def test_discover_returns_expected_shape():
-    """discover() returns a dict with employee, company, projects, activity_types."""
+    """discover() returns a dict with employee, company, projects, activity_types, full_name."""
     with patch("scripts.setup.requests.Session") as mock_session_cls:
         session = MagicMock()
         mock_session_cls.return_value = session
 
-        # login
         session.post.return_value = mock_response(200)
 
-        # employee lookup
         session.get.side_effect = [
             mock_response(200, {"data": [{"name": "EMP-001", "company": "ACME Corp"}]}),  # employee
             mock_response(200, {"data": [{"name": "PROJ-001"}, {"name": "PROJ-002"}]}),   # projects
             mock_response(200, {"data": [{"name": "Development"}, {"name": "Design"}]}),   # activity types
+            mock_response(200, {"data": {"full_name": "Jane Doe"}}),                       # user full_name
         ]
 
         result = discover("https://erp.example.com", "user@example.com", "pass")
@@ -43,6 +42,7 @@ def test_discover_returns_expected_shape():
     assert result["company"] == "ACME Corp"
     assert result["projects"] == ["PROJ-001", "PROJ-002"]
     assert result["activity_types"] == ["Development", "Design"]
+    assert result["full_name"] == "Jane Doe"
 
 
 def test_discover_raises_on_login_failure():
@@ -65,6 +65,44 @@ def test_discover_raises_on_no_employee():
 
         with pytest.raises(ValueError, match="employee"):
             discover("https://erp.example.com", "user@example.com", "pass")
+
+
+def test_discover_full_name_falls_back_on_http_error():
+    """full_name falls back to username if the User GET raises HTTPError."""
+    with patch("scripts.setup.requests.Session") as mock_session_cls:
+        session = MagicMock()
+        mock_session_cls.return_value = session
+
+        session.post.return_value = mock_response(200)
+        session.get.side_effect = [
+            mock_response(200, {"data": [{"name": "EMP-001", "company": "ACME Corp"}]}),
+            mock_response(200, {"data": [{"name": "PROJ-001"}]}),
+            mock_response(200, {"data": [{"name": "Development"}]}),
+            mock_response(403),  # User GET fails
+        ]
+
+        result = discover("https://erp.example.com", "user@example.com", "pass")
+
+    assert result["full_name"] == "user@example.com"
+
+
+def test_discover_full_name_falls_back_when_field_missing():
+    """full_name falls back to username if full_name absent in response."""
+    with patch("scripts.setup.requests.Session") as mock_session_cls:
+        session = MagicMock()
+        mock_session_cls.return_value = session
+
+        session.post.return_value = mock_response(200)
+        session.get.side_effect = [
+            mock_response(200, {"data": [{"name": "EMP-001", "company": "ACME Corp"}]}),
+            mock_response(200, {"data": [{"name": "PROJ-001"}]}),
+            mock_response(200, {"data": [{"name": "Development"}]}),
+            mock_response(200, {"data": {}}),  # full_name key absent
+        ]
+
+        result = discover("https://erp.example.com", "user@example.com", "pass")
+
+    assert result["full_name"] == "user@example.com"
 
 
 # --- write_config ---
