@@ -1,3 +1,9 @@
+---
+name: timesheet
+description: Use when the user wants to submit today's ERPNext timesheet, log work hours, or fill in a timesheet from conversation history
+version: 1.0.0
+---
+
 # ERPNext Timesheet
 
 Automate daily ERPNext timesheet filling from your Claude conversation history.
