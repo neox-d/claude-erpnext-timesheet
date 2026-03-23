@@ -26,29 +26,16 @@ At the end of the day, run `/timesheet` and Claude will:
 
 ### Manual installation
 
-Clone the repo and symlink the skill:
-
 ```bash
 git clone https://github.com/neox-d/claude-erpnext-timesheet ~/.claude/plugins/cache/erpnext-timesheet
-mkdir -p ~/.claude/skills/timesheet
-ln -s ~/.claude/plugins/cache/erpnext-timesheet/skills/timesheet/SKILL.md ~/.claude/skills/timesheet/SKILL.md
+cd ~/.claude/plugins/cache/erpnext-timesheet
+bash install.sh
 ```
 
-Set the plugin root in `~/.claude/settings.json`:
-
-```json
-{
-  "env": {
-    "CLAUDE_PLUGIN_ROOT": "~/.claude/plugins/cache/erpnext-timesheet"
-  }
-}
-```
-
-Install Python dependencies:
-
-```bash
-pip install requests
-```
+The install script:
+- Symlinks `skills/timesheet/SKILL.md` into `~/.claude/skills/timesheet/`
+- Sets `CLAUDE_PLUGIN_ROOT` in `~/.claude/settings.json`
+- Runs `pip install .` to install Python dependencies
 
 ### First run (setup wizard)
 
