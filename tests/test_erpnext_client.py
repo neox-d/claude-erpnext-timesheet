@@ -117,6 +117,7 @@ def test_submit_timesheet_calls_put():
 BASE_CONFIG = {
     "employee": "EMP-001",
     "company": "ACME Corp",
+    "username": "user@example.com",
     "project": "PROJ-001",
     "default_activity": "Development",
     "work_hours": 4,
