@@ -80,18 +80,22 @@ def build_timesheet_doc(config: dict, entries: list) -> dict:
         from_time = current.strftime("%Y-%m-%d %H:%M:%S")
         current += timedelta(hours=hours)
         to_time = current.strftime("%Y-%m-%d %H:%M:%S")
-        time_logs.append({
+        log = {
             "activity_type": entry.get("activity_type", config["default_activity"]),
             "description": entry["description"],
             "hours": hours,
             "from_time": from_time,
             "to_time": to_time,
             "project": config["project"],
-        })
+        }
+        if entry.get("task"):
+            log["task"] = entry["task"]
+        time_logs.append(log)
 
     return {
         "employee": config["employee"],
         "company": config["company"],
+        "user": config["username"],
         "start_date": today,
         "end_date": today,
         "time_logs": time_logs,

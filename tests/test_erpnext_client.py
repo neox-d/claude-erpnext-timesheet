@@ -160,3 +160,24 @@ def test_build_timesheet_doc_time_format():
     pattern = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"
     assert re.match(pattern, log["from_time"])
     assert re.match(pattern, log["to_time"])
+
+
+def test_build_timesheet_doc_includes_task_when_present():
+    """task field is included in time log row when entry has a non-empty task key."""
+    entries = [{"description": "Task A", "hours": 4.0, "task": "TASK-2026-01052"}]
+    doc = build_timesheet_doc(BASE_CONFIG, entries)
+    assert doc["time_logs"][0]["task"] == "TASK-2026-01052"
+
+
+def test_build_timesheet_doc_omits_task_when_absent():
+    """task field is absent in time log row when entry has no task key."""
+    entries = [{"description": "Task A", "hours": 4.0}]
+    doc = build_timesheet_doc(BASE_CONFIG, entries)
+    assert "task" not in doc["time_logs"][0]
+
+
+def test_build_timesheet_doc_omits_task_when_empty_string():
+    """task field is omitted when entry has task key set to empty string."""
+    entries = [{"description": "Task A", "hours": 4.0, "task": ""}]
+    doc = build_timesheet_doc(BASE_CONFIG, entries)
+    assert "task" not in doc["time_logs"][0]
