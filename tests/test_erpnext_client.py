@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -155,7 +156,6 @@ def test_build_timesheet_doc_time_format():
     entries = [{"description": "Task", "hours": 1.0}]
     doc = build_timesheet_doc(BASE_CONFIG, entries)
     log = doc["time_logs"][0]
-    import re
     pattern = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"
     assert re.match(pattern, log["from_time"])
     assert re.match(pattern, log["to_time"])

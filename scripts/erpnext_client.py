@@ -68,10 +68,11 @@ class ERPNextClient:
 
 
 def build_timesheet_doc(config: dict, entries: list) -> dict:
-    today = datetime.today().strftime("%Y-%m-%d")
+    now = datetime.today()
+    today = now.strftime("%Y-%m-%d")
     start_time_str = config.get("start_time", "09:00")
     h, m = map(int, start_time_str.split(":"))
-    current = datetime.today().replace(hour=h, minute=m, second=0, microsecond=0)
+    current = now.replace(hour=h, minute=m, second=0, microsecond=0)
 
     time_logs = []
     for entry in entries:
@@ -105,7 +106,15 @@ def main():
     parser.add_argument("--entries-file", help="Path to JSON file with approved entries (preferred)")
     args = parser.parse_args()
 
-    config = json.loads(Path(args.config).read_text())
+    config_path = Path(args.config)
+    if not config_path.exists():
+        print(f"ERROR: Config file not found: {args.config}", file=sys.stderr)
+        sys.exit(1)
+    try:
+        config = json.loads(config_path.read_text())
+    except json.JSONDecodeError as e:
+        print(f"ERROR: Invalid JSON in config: {e}", file=sys.stderr)
+        sys.exit(1)
     client = ERPNextClient(config["url"], config["username"], config["password"])
     today = datetime.today().strftime("%Y-%m-%d")
 
@@ -115,7 +124,11 @@ def main():
 
     elif args.action == "submit":
         if args.entries_file:
-            entries = json.loads(Path(args.entries_file).read_text())
+            try:
+                entries = json.loads(Path(args.entries_file).read_text())
+            except (OSError, json.JSONDecodeError) as e:
+                print(f"ERROR: Could not read entries file: {e}", file=sys.stderr)
+                sys.exit(1)
         elif args.entries:
             entries = json.loads(args.entries)
         else:
