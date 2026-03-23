@@ -77,7 +77,10 @@ def get_today_messages(tz=None) -> list:
     if not projects_dir.exists():
         return []
 
-    today = date.today()
+    if tz is not None:
+        today = datetime.now(tz).date()
+    else:
+        today = date.today()
     messages = []
 
     for project_dir in projects_dir.iterdir():
@@ -85,7 +88,10 @@ def get_today_messages(tz=None) -> list:
             continue
         for jsonl_file in project_dir.glob("*.jsonl"):
             # mtime pre-filter: skip files not modified today
-            mtime = datetime.fromtimestamp(jsonl_file.stat().st_mtime).date()
+            if tz is not None:
+                mtime = datetime.fromtimestamp(jsonl_file.stat().st_mtime, tz=tz).date()
+            else:
+                mtime = datetime.fromtimestamp(jsonl_file.stat().st_mtime).date()
             if mtime < today:
                 continue
 
