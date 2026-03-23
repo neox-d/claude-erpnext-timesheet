@@ -52,6 +52,8 @@ Found:
   Activity types: <list>
 ```
 
+If the list shows a `projects_truncated` or `activity_types_truncated` flag, note to the user that the list may be incomplete and they can type a project/activity name manually.
+
 Ask:
 4. **Default project** — show the discovered list, ask user to pick one (or type a project name if not listed)
 5. **Default activity type** — show the discovered list, ask user to pick one
@@ -60,14 +62,20 @@ Ask:
 8. **Timezone** — default is your system timezone; common options: `Asia/Kolkata`, `UTC`, `America/New_York`
 
 Build the config JSON and write it:
+
+Substitute `CONFIG_PLACEHOLDER` with the Python dict literal for the assembled config. This avoids passing credentials as shell arguments.
+
 ```bash
+CONFIG_TMPFILE=$(mktemp /tmp/timesheet-setup-XXXXXX.json)
+python3 -c "import json, sys; json.dump(CONFIG_PLACEHOLDER, open(sys.argv[1], 'w'))" "$CONFIG_TMPFILE"
 python3 "$CLAUDE_PLUGIN_ROOT/scripts/setup.py" \
   --action write-config \
-  --config-data '<JSON>' \
+  --config-file "$CONFIG_TMPFILE" \
   --config-out ~/.claude/timesheet.json
+rm -f "$CONFIG_TMPFILE"
 ```
 
-Where `<JSON>` is the Python literal / JSON string for:
+Where `CONFIG_PLACEHOLDER` is the Python dict literal for:
 ```json
 {
   "url": "<URL>",

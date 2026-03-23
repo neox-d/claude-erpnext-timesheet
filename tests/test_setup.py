@@ -99,3 +99,13 @@ def test_write_config_overwrites_existing(tmp_path):
     loaded = json.loads(out.read_text())
     assert loaded["url"] == "https://new.example.com"
     assert "old" not in loaded
+
+
+def test_write_config_creates_parent_dirs(tmp_path):
+    nested = tmp_path / ".claude" / "timesheet.json"
+    assert not nested.parent.exists()
+    config = {"url": "https://erp.example.com", "username": "u", "password": "p",
+              "employee": "E", "company": "C", "project": "P",
+              "default_activity": "D", "work_hours": 8}
+    write_config(config, str(nested))
+    assert nested.exists()

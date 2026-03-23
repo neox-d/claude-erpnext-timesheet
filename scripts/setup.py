@@ -4,12 +4,13 @@ ERPNext setup wizard helper.
 
 Usage:
   python3 setup.py --url URL --username USER --password PASS --action discover
-  python3 setup.py --action write-config --config-data '{"url": ...}'
+  python3 setup.py --action write-config --config-file /tmp/config.json
 """
 import argparse
 import json
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 import requests
 
@@ -54,23 +55,30 @@ def discover(url: str, username: str, password: str) -> dict:
 
     # Discover activity types
     resp = session.get(
-        f"{base}/api/resource/Activity Type",
+        f"{base}/api/resource/{quote('Activity Type')}",
         params={"fields": json.dumps(["name"]), "limit": 50},
     )
     resp.raise_for_status()
     activity_types = [a["name"] for a in resp.json().get("data", [])]
 
-    return {
+    result = {
         "employee": employee,
         "company": company,
         "projects": projects,
         "activity_types": activity_types,
     }
+    if len(projects) == 50:
+        result["projects_truncated"] = True
+    if len(activity_types) == 50:
+        result["activity_types_truncated"] = True
+    return result
 
 
 def write_config(config: dict, path: str) -> None:
-    """Write config dict to JSON file at path."""
-    Path(path).write_text(json.dumps(config, indent=2))
+    """Write config dict to JSON file at path. Creates parent directories if needed."""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(config, indent=2))
 
 
 def main():
@@ -79,7 +87,7 @@ def main():
     parser.add_argument("--url")
     parser.add_argument("--username")
     parser.add_argument("--password")
-    parser.add_argument("--config-data", help="JSON string of config to write")
+    parser.add_argument("--config-file", help="Path to JSON file containing config to write")
     parser.add_argument("--config-out", default=str(Path.home() / ".claude" / "timesheet.json"))
     args = parser.parse_args()
 
@@ -94,18 +102,21 @@ def main():
         except requests.HTTPError as e:
             print(f"ERROR: Login failed ({e.response.status_code}). Check your URL and credentials.", file=sys.stderr)
             sys.exit(1)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            print("ERROR: Could not connect to ERPNext. Check the URL and your network connection.", file=sys.stderr)
+            sys.exit(1)
         except ValueError as e:
             print(f"ERROR: {e}", file=sys.stderr)
             sys.exit(1)
 
     elif args.action == "write-config":
-        if not args.config_data:
-            print("ERROR: --config-data required for write-config action", file=sys.stderr)
+        if not args.config_file:
+            print("ERROR: --config-file required for write-config action", file=sys.stderr)
             sys.exit(1)
         try:
-            config = json.loads(args.config_data)
-        except json.JSONDecodeError as e:
-            print(f"ERROR: Invalid JSON in --config-data: {e}", file=sys.stderr)
+            config = json.loads(Path(args.config_file).read_text())
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"ERROR: Could not read config file: {e}", file=sys.stderr)
             sys.exit(1)
         write_config(config, args.config_out)
         print(f"Config written to {args.config_out}")
