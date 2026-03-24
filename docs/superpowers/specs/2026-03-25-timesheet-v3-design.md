@@ -33,14 +33,16 @@ Other changes:
 
 ## 2. Reset / Reconfigure
 
-When `~/.claude/timesheet.json` exists, Step 0 presents the current identity and offers to reconfigure before proceeding:
+When `~/.claude/timesheet.json` exists, Step 0 reads the config and presents the current identity:
 
 ```
 <username> @ <url>. [Enter] to continue, [r] to reconfigure.
 ```
 
-- **Enter** — skip to Step 1 (existing behavior)
-- **r** — run the setup wizard (same flow as first-time setup), overwriting `~/.claude/timesheet.json` when confirmed
+- **Enter** — proceed to Step 1
+- **r** — run the full setup wizard (identical to first-time setup), overwriting `~/.claude/timesheet.json` on confirmation, then proceed to Step 1
+
+After the reconfigure wizard completes, execution continues at Step 1 (config validation) exactly as it would after a first-time setup.
 
 No script changes required. This is a SKILL.md-only change.
 
@@ -70,12 +72,18 @@ The TUI header uses the resolved date: `Draft timesheet for YYYY-MM-DD`.
 
 Add `--date YYYY-MM-DD` argument. When provided:
 - `target_date` is parsed from the argument instead of `date.today()`
-- The mtime pre-filter uses `mtime.date() < target_date` (relaxed from `< today` to allow past files)
+- The mtime pre-filter condition changes to `mtime.date() > target_date` (skip files modified *after* the target date — they can't contain target-date messages). Files modified on or before the target date are included.
 - Message timestamp filter uses `target_date` instead of today
 
 ### Script changes: `erpnext_client.py`
 
 Add `--date YYYY-MM-DD` argument to the `check-duplicate` and `submit` actions. When omitted, defaults to today (backward compatible).
+
+For `submit`: the resolved date is passed into `build_timesheet_doc` and used for `start_date`, `end_date`, and as the base date for `from_time`/`to_time` timestamps — replacing all calls to `datetime.today()` inside that function.
+
+### Script changes: `task_manager.py`
+
+The `[t]` → `[n]` (create new task) flow in SKILL.md currently hardcodes `"date": "<today YYYY-MM-DD>"` in the task payload. For backdated entries, the resolved date is used instead of today.
 
 ---
 
@@ -96,15 +104,18 @@ Step 3 (synthesis) is unchanged regardless of source: Claude produces task entri
 | Component | Change type | Description |
 |---|---|---|
 | `SKILL.md` | Edit | UX cleanup, Step 0 reconfigure, backdated date propagation, Step 2 flexibility |
-| `parse_logs.py` | Edit | Add `--date` flag |
-| `erpnext_client.py` | Edit | Add `--date` flag to check-duplicate and submit |
-| Tests | Edit | Update/add tests for `--date` in both scripts |
+| `parse_logs.py` | Edit | Add `--date` flag; fix mtime pre-filter for past dates |
+| `erpnext_client.py` | Edit | Add `--date` flag to check-duplicate and submit; pass date into `build_timesheet_doc` |
+| `task_manager.py` | Edit | SKILL.md passes resolved date in task creation payload |
+| Tests | Edit | Update/add tests for `--date` in parse_logs and erpnext_client |
 
 ---
 
 ## Testing
 
-- `parse_logs.py --date 2026-03-24` returns messages from that date (existing fixture covers this with adjustment)
+- `parse_logs.py --date 2026-03-24` returns messages from that date; files modified after that date are excluded by mtime pre-filter
+- `parse_logs.py` with no `--date` keeps existing today-only behaviour
 - `erpnext_client.py --action check-duplicate --date 2026-03-24` sends correct date in API call
-- `erpnext_client.py --action submit --date 2026-03-24` uses that date in submitted timesheet
-- Omitting `--date` keeps existing behaviour (backward compatible)
+- `erpnext_client.py --action submit --date 2026-03-24` uses that date in `build_timesheet_doc` (start_date, end_date, from_time, to_time base)
+- Omitting `--date` in erpnext_client.py defaults to today (backward compatible)
+- Task creation via `[t]` → `[n]` uses resolved date in the task payload
