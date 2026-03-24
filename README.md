@@ -33,19 +33,6 @@ To update later:
 /plugin update erpnext-timesheet@neox-d-plugins
 ```
 
-### Manual Installation
-
-```bash
-git clone https://github.com/neox-d/claude-erpnext-timesheet ~/.claude/plugins/cache/erpnext-timesheet
-cd ~/.claude/plugins/cache/erpnext-timesheet
-bash install.sh
-```
-
-The install script:
-- Symlinks `skills/timesheet/SKILL.md` into `~/.claude/skills/timesheet/`
-- Sets `CLAUDE_PLUGIN_ROOT` in `~/.claude/settings.json`
-- Runs `pip install .` to install Python dependencies
-
 ### First run (setup wizard)
 
 Run `/timesheet` in Claude Code. On first use it will guide you through connecting to your ERPNext instance:
