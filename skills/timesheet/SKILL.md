@@ -60,17 +60,27 @@ Is this the right account? [y/n]
 
 If `n`, re-ask steps 1–3 and re-run discover.
 
-Then present each setting with the discovered or default value in brackets. The user presses Enter to accept, or types a new value to override:
+Then display the discovered lists and present each setting with the discovered or default value in brackets. The user presses Enter to accept, or types a new value to override:
 
 ```
-Default project [<first project from discovered list>]:
-Default activity type [<first activity type from discovered list>]:
+Available projects:
+  1. <project 1>
+  2. <project 2>
+  ...
+
+Available activity types:
+  1. <activity type 1>
+  2. <activity type 2>
+  ...
+
+Default project [<first project>]:
+Default activity type [<first activity type>]:
 Work hours per day [8]:
 Workday start time [09:00]:
 Timezone [<system timezone — run: timedatectl show --property=Timezone --value>]:
 ```
 
-If the output shows `projects_truncated` or `activity_types_truncated`, note to the user that the list may be incomplete and they can type a name manually.
+If the output shows `projects_truncated` or `activity_types_truncated`, append `(list may be incomplete — type a name manually if yours is missing)` after the respective list.
 
 Before saving, show a summary and ask for confirmation:
 ```
