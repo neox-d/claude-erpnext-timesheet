@@ -198,7 +198,9 @@ def test_write_config_pwd_file_merges_password_and_deletes_file(tmp_path, monkey
 
     assert not pwd_file.exists(), "password temp file should be deleted after use"
     loaded = json.loads(out_file.read_text())
-    assert loaded["password"] == "my_secret"
+    assert loaded["password"].startswith("enc:"), "password should be stored encrypted"
+    from scripts.crypto import decrypt_password
+    assert decrypt_password(loaded["password"]) == "my_secret"
 
 
 # --- write_config ---

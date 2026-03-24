@@ -18,6 +18,8 @@ from urllib.parse import quote
 
 import requests
 
+from scripts.crypto import encrypt_password
+
 
 def discover(url: str, username: str, password: str) -> dict:
     """
@@ -154,7 +156,7 @@ def main():
             sys.exit(1)
         if args.pwd_file:
             try:
-                config["password"] = Path(args.pwd_file).read_text()
+                config["password"] = encrypt_password(Path(args.pwd_file).read_text())
                 Path(args.pwd_file).unlink()
             except OSError as e:
                 print(f"ERROR: Could not read password file: {e}", file=sys.stderr)

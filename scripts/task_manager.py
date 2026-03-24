@@ -16,6 +16,8 @@ from pathlib import Path
 
 import requests
 
+from scripts.crypto import decrypt_password
+
 
 def _login(config: dict) -> requests.Session:
     """Create an authenticated session."""
@@ -23,7 +25,7 @@ def _login(config: dict) -> requests.Session:
     base = config["url"].rstrip("/")
     resp = session.post(
         f"{base}/api/method/login",
-        data={"usr": config["username"], "pwd": config["password"]},
+        data={"usr": config["username"], "pwd": decrypt_password(config["password"])},
     )
     resp.raise_for_status()
     return session

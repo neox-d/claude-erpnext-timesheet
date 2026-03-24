@@ -14,6 +14,8 @@ from pathlib import Path
 
 import requests
 
+from scripts.crypto import decrypt_password
+
 
 class ERPNextClient:
     def __init__(self, url: str, username: str, password: str):
@@ -119,7 +121,7 @@ def main():
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON in config: {e}", file=sys.stderr)
         sys.exit(1)
-    client = ERPNextClient(config["url"], config["username"], config["password"])
+    client = ERPNextClient(config["url"], config["username"], decrypt_password(config["password"]))
     today = datetime.today().strftime("%Y-%m-%d")
 
     if args.action == "check-duplicate":
