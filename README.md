@@ -18,13 +18,22 @@ At the end of the day, run `/timesheet` and Claude will:
 
 ### As a Claude Code plugin
 
+Add the marketplace (once):
 ```
-/plugin install erpnext-timesheet@<marketplace>
+/plugin marketplace add neox-d/claude-plugins
 ```
 
-> Not yet listed in a marketplace. Install manually (see below).
+Then install:
+```
+/plugin install erpnext-timesheet@neox-d-plugins
+```
 
-### Manual installation
+To update later:
+```
+/plugin update erpnext-timesheet@neox-d-plugins
+```
+
+### Manual Installation
 
 ```bash
 git clone https://github.com/neox-d/claude-erpnext-timesheet ~/.claude/plugins/cache/erpnext-timesheet
