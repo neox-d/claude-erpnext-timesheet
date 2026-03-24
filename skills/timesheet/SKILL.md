@@ -34,20 +34,19 @@ Ask the following questions one at a time:
 
 1. **ERPNext URL** — e.g. `https://yourcompany.erpnext.com`
 2. **Username** — your ERPNext login email
-3. **Password**
 
-Then test login and discover configuration:
+Then test login and discover configuration. The password will be prompted securely in the terminal (masked — it will not appear in the conversation):
 ```bash
 python3 "$CLAUDE_PLUGIN_ROOT/scripts/setup.py" \
   --action discover \
   --url "<URL>" \
   --username "<USERNAME>" \
-  --password "<PASSWORD>"
+  --prompt-password
 ```
 
-If the command fails, show the error and ask the user to correct their credentials. Re-ask steps 1–3.
+If the command fails, show the error and ask the user to correct their credentials. Re-ask steps 1–2.
 
-If it succeeds, the output contains `employee`, `company`, `full_name`, `projects` (list), `activity_types` (list).
+If it succeeds, the output contains `employee`, `company`, `full_name`, `projects` (list), `activity_types` (list), and `_pwd_file` (path to a temp file holding the password securely). Store the `_pwd_file` path for the write-config step.
 
 Show the identity confirmation block and ask:
 ```
@@ -58,7 +57,7 @@ Company:      <company>
 Is this the right account? [y/n]
 ```
 
-If `n`, re-ask steps 1–3 and re-run discover.
+If `n`, re-ask steps 1–2 and re-run discover.
 
 Then display the discovered lists and present each setting with the discovered or default value in brackets. The user presses Enter to accept, or types a new value to override:
 
@@ -97,11 +96,11 @@ About to save:
 Save to ~/.claude/timesheet.json? [y/n]
 ```
 
-If `n`, restart from the beginning (re-ask URL, username, password).
+If `n`, restart from the beginning (re-ask URL, username).
 
-If `y`, build the config JSON and write it:
+If `y`, build the config JSON and write it. The password is never included in the conversation — it is read from the `_pwd_file` temp file created during discover.
 
-Substitute `CONFIG_PLACEHOLDER` with the Python dict literal for the assembled config. This avoids passing credentials as shell arguments.
+Substitute `CONFIG_PLACEHOLDER` with the Python dict literal for the assembled config (no password field — that is injected by `--pwd-file`):
 
 ```bash
 CONFIG_TMPFILE=$(mktemp /tmp/timesheet-setup-XXXXXX.json)
@@ -109,6 +108,7 @@ python3 -c "import json, sys; json.dump(CONFIG_PLACEHOLDER, open(sys.argv[1], 'w
 python3 "$CLAUDE_PLUGIN_ROOT/scripts/setup.py" \
   --action write-config \
   --config-file "$CONFIG_TMPFILE" \
+  --pwd-file "<_pwd_file path from discover output>" \
   --config-out ~/.claude/timesheet.json
 rm -f "$CONFIG_TMPFILE"
 ```
@@ -118,7 +118,6 @@ Where `CONFIG_PLACEHOLDER` is the Python dict literal for:
 {
   "url": "<URL>",
   "username": "<USERNAME>",
-  "password": "<PASSWORD>",
   "employee": "<discovered employee>",
   "company": "<discovered company>",
   "project": "<chosen project>",
@@ -128,6 +127,8 @@ Where `CONFIG_PLACEHOLDER` is the Python dict literal for:
   "timezone": "<timezone>"
 }
 ```
+
+The `--pwd-file` flag injects the password into the config and deletes the temp file automatically.
 
 Tell the user: `Setup complete! Config saved to ~/.claude/timesheet.json`
 

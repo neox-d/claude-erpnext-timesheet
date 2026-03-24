@@ -7,8 +7,12 @@ Usage:
   python3 setup.py --action write-config --config-file /tmp/config.json
 """
 import argparse
+import getpass
 import json
+import os
+import stat
 import sys
+import tempfile
 from pathlib import Path
 from urllib.parse import quote
 
@@ -100,17 +104,34 @@ def main():
     parser.add_argument("--url")
     parser.add_argument("--username")
     parser.add_argument("--password")
+    parser.add_argument("--prompt-password", action="store_true",
+                        help="Prompt for password securely via terminal (masked); writes to temp file")
+    parser.add_argument("--pwd-file", help="Path to temp file containing password (write-config only; deleted after use)")
     parser.add_argument("--config-file", help="Path to JSON file containing config to write")
     parser.add_argument("--config-out", default=str(Path.home() / ".claude" / "timesheet.json"))
     args = parser.parse_args()
 
     if args.action == "discover":
-        for field in ["url", "username", "password"]:
+        for field in ["url", "username"]:
             if not getattr(args, field):
                 print(f"ERROR: --{field} required for discover action", file=sys.stderr)
                 sys.exit(1)
+        if args.prompt_password:
+            password = getpass.getpass("ERPNext password: ")
+            fd, pwd_path = tempfile.mkstemp(suffix=".pwd", prefix="ts-")
+            os.chmod(pwd_path, stat.S_IRUSR | stat.S_IWUSR)
+            with os.fdopen(fd, "w") as f:
+                f.write(password)
+        elif args.password:
+            password = args.password
+            pwd_path = None
+        else:
+            print("ERROR: --password or --prompt-password required for discover action", file=sys.stderr)
+            sys.exit(1)
         try:
-            result = discover(args.url, args.username, args.password)
+            result = discover(args.url, args.username, password)
+            if pwd_path:
+                result["_pwd_file"] = pwd_path
             print(json.dumps(result, indent=2))
         except requests.HTTPError as e:
             print(f"ERROR: Login failed ({e.response.status_code}). Check your URL and credentials.", file=sys.stderr)
@@ -131,6 +152,13 @@ def main():
         except (OSError, json.JSONDecodeError) as e:
             print(f"ERROR: Could not read config file: {e}", file=sys.stderr)
             sys.exit(1)
+        if args.pwd_file:
+            try:
+                config["password"] = Path(args.pwd_file).read_text()
+                Path(args.pwd_file).unlink()
+            except OSError as e:
+                print(f"ERROR: Could not read password file: {e}", file=sys.stderr)
+                sys.exit(1)
         write_config(config, args.config_out)
         print(f"Config written to {args.config_out}")
 

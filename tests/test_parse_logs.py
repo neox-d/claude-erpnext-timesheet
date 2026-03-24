@@ -105,11 +105,19 @@ def test_get_today_messages_filters_today(tmp_path, monkeypatch):
     session_file = proj_dir / "abc-123.jsonl"
     session_file.write_text(FIXTURE_PATH.read_text())
 
+    # Set mtime to match the fixture date so the mtime pre-filter doesn't skip the file
+    fixed_dt = datetime(2026, 3, 23, 12, 0, 0, tzinfo=timezone.utc)
+    os.utime(session_file, (fixed_dt.timestamp(), fixed_dt.timestamp()))
+
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-    fixed_date = date(2026, 3, 23)
-    with patch("scripts.parse_logs.date") as mock_date:
-        mock_date.today.return_value = fixed_date
+    # Patch both datetime.now (used when tz is passed) and date.today (used when tz is None)
+    with patch("scripts.parse_logs.datetime") as mock_datetime, \
+         patch("scripts.parse_logs.date") as mock_date:
+        mock_datetime.now.return_value = fixed_dt
+        mock_datetime.fromisoformat.side_effect = datetime.fromisoformat
+        mock_datetime.fromtimestamp.side_effect = datetime.fromtimestamp
+        mock_date.today.return_value = date(2026, 3, 23)
         mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
         messages = get_today_messages(tz=timezone.utc)
 

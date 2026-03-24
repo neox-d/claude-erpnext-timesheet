@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -103,6 +104,101 @@ def test_discover_full_name_falls_back_when_field_missing():
         result = discover("https://erp.example.com", "user@example.com", "pass")
 
     assert result["full_name"] == "user@example.com"
+
+
+# --- main: --prompt-password ---
+
+def _standard_session_mocks(session):
+    session.post.return_value = mock_response(200)
+    session.get.side_effect = [
+        mock_response(200, {"data": [{"name": "EMP-001", "company": "ACME Corp"}]}),
+        mock_response(200, {"data": [{"name": "PROJ-001"}]}),
+        mock_response(200, {"data": [{"name": "Development"}]}),
+        mock_response(200, {"data": {"full_name": "Jane Doe"}}),
+    ]
+
+
+def test_prompt_password_creates_temp_file_and_includes_in_output(capsys, monkeypatch):
+    """--prompt-password captures password via getpass, writes temp file, adds _pwd_file to output."""
+    monkeypatch.setattr(sys, "argv", [
+        "setup.py", "--action", "discover",
+        "--url", "https://erp.example.com",
+        "--username", "user@example.com",
+        "--prompt-password",
+    ])
+    with patch("scripts.setup.requests.Session") as mock_session_cls, \
+         patch("scripts.setup.getpass.getpass", return_value="secret123"):
+        session = MagicMock()
+        mock_session_cls.return_value = session
+        _standard_session_mocks(session)
+
+        from scripts.setup import main
+        main()
+
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert "_pwd_file" in result
+    pwd_path = Path(result["_pwd_file"])
+    assert pwd_path.exists()
+    assert pwd_path.read_text() == "secret123"
+    pwd_path.unlink()
+
+
+def test_prompt_password_temp_file_is_mode_600(capsys, monkeypatch):
+    """Temp file created by --prompt-password is readable only by owner."""
+    import os, stat as stat_mod
+    monkeypatch.setattr(sys, "argv", [
+        "setup.py", "--action", "discover",
+        "--url", "https://erp.example.com",
+        "--username", "user@example.com",
+        "--prompt-password",
+    ])
+    with patch("scripts.setup.requests.Session") as mock_session_cls, \
+         patch("scripts.setup.getpass.getpass", return_value="s3cr3t"):
+        session = MagicMock()
+        mock_session_cls.return_value = session
+        _standard_session_mocks(session)
+
+        from scripts.setup import main
+        main()
+
+    captured = capsys.readouterr()
+    pwd_path = Path(json.loads(captured.out)["_pwd_file"])
+    mode = os.stat(pwd_path).st_mode
+    assert not (mode & stat_mod.S_IRGRP) and not (mode & stat_mod.S_IROTH), "file should not be group/world readable"
+    pwd_path.unlink()
+
+
+# --- main: --pwd-file in write-config ---
+
+def test_write_config_pwd_file_merges_password_and_deletes_file(tmp_path, monkeypatch):
+    """--pwd-file reads password into config and deletes the temp file."""
+    pwd_file = tmp_path / "test.pwd"
+    pwd_file.write_text("my_secret")
+
+    config = {
+        "url": "https://erp.example.com", "username": "u@example.com",
+        "employee": "EMP-001", "company": "ACME Corp", "project": "PROJ-001",
+        "default_activity": "Development", "work_hours": 8,
+        "start_time": "09:00", "timezone": "Asia/Kolkata",
+    }
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps(config))
+    out_file = tmp_path / "timesheet.json"
+
+    monkeypatch.setattr(sys, "argv", [
+        "setup.py", "--action", "write-config",
+        "--config-file", str(config_file),
+        "--pwd-file", str(pwd_file),
+        "--config-out", str(out_file),
+    ])
+
+    from scripts.setup import main
+    main()
+
+    assert not pwd_file.exists(), "password temp file should be deleted after use"
+    loaded = json.loads(out_file.read_text())
+    assert loaded["password"] == "my_secret"
 
 
 # --- write_config ---
