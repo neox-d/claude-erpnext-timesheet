@@ -37,7 +37,7 @@ Ask the following questions one at a time:
 
 Then test login and discover configuration. The password will be prompted securely in the terminal (masked — it will not appear in the conversation):
 ```bash
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/setup.py" \
+python3 "scripts/setup.py" \
   --action discover \
   --url "<URL>" \
   --username "<USERNAME>" \
@@ -105,7 +105,7 @@ Substitute `CONFIG_PLACEHOLDER` with the Python dict literal for the assembled c
 ```bash
 CONFIG_TMPFILE=$(mktemp /tmp/timesheet-setup-XXXXXX.json)
 python3 -c "import json, sys; json.dump(CONFIG_PLACEHOLDER, open(sys.argv[1], 'w'))" "$CONFIG_TMPFILE"
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/setup.py" \
+python3 "scripts/setup.py" \
   --action write-config \
   --config-file "$CONFIG_TMPFILE" \
   --pwd-file "<_pwd_file path from discover output>" \
@@ -138,7 +138,7 @@ Then continue to Step 1 (config validation) to confirm everything is in order.
 
 Run:
 ```bash
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/parse_logs.py" --config ~/.claude/timesheet.json --validate-only
+python3 "scripts/parse_logs.py" --config ~/.claude/timesheet.json --validate-only
 ```
 
 If the command exits non-zero or output is not `OK`, print the error and stop. Do not proceed.
@@ -149,7 +149,7 @@ Tell the user: `Reading today's Claude conversations...`
 
 Run:
 ```bash
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/parse_logs.py" --config ~/.claude/timesheet.json
+python3 "scripts/parse_logs.py" --config ~/.claude/timesheet.json
 ```
 
 This returns a JSON array of messages `[{role, text, cwd, timestamp}]`. Store this as your context.
@@ -178,7 +178,7 @@ If no messages were found, tell the user and skip to Step 5 with an empty list.
 
 Run:
 ```bash
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/erpnext_client.py" --config ~/.claude/timesheet.json --action check-duplicate
+python3 "scripts/erpnext_client.py" --config ~/.claude/timesheet.json --action check-duplicate
 ```
 
 If the output contains `"exists": true`, ask:
@@ -273,7 +273,7 @@ Ask: `Which entry number?`
 
 Fetch tasks from the configured project:
 ```bash
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/task_manager.py" \
+python3 "scripts/task_manager.py" \
   --config ~/.claude/timesheet.json \
   --action get-tasks \
   --project "<project from config>"
@@ -307,7 +307,7 @@ Write a temp file and run create-task:
 ```bash
 TASK_FILE=$(mktemp /tmp/timesheet-task-XXXXXX.json)
 python3 -c "import json, sys; json.dump(TASK_PLACEHOLDER, open(sys.argv[1], 'w'))" "$TASK_FILE"
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/task_manager.py" \
+python3 "scripts/task_manager.py" \
   --config ~/.claude/timesheet.json \
   --action create-task \
   --task-file "$TASK_FILE"
@@ -348,7 +348,7 @@ Substitute `ENTRIES_PLACEHOLDER` with the Python literal for the approved entrie
 ```bash
 ENTRIES_FILE=$(mktemp /tmp/timesheet-entries-XXXXXX.json)
 python3 -c "import json, sys; json.dump(ENTRIES_PLACEHOLDER, open(sys.argv[1], 'w'))" "$ENTRIES_FILE"
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/erpnext_client.py" \
+python3 "scripts/erpnext_client.py" \
   --config ~/.claude/timesheet.json \
   --action submit \
   --entries-file "$ENTRIES_FILE"

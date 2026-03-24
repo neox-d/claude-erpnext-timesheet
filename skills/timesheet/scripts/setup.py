@@ -16,6 +16,8 @@ import tempfile
 from pathlib import Path
 from urllib.parse import quote
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import requests
 
 from scripts.crypto import encrypt_password
