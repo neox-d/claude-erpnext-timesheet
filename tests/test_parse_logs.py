@@ -133,13 +133,11 @@ def test_get_today_messages_sorted_by_timestamp(tmp_path, monkeypatch):
     session_file = proj_dir / "abc-123.jsonl"
     session_file.write_text(FIXTURE_PATH.read_text())
 
+    fixed_ts = datetime(2026, 3, 23, 12, 0, 0, tzinfo=timezone.utc)
+    os.utime(session_file, (fixed_ts.timestamp(), fixed_ts.timestamp()))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-    fixed_date = date(2026, 3, 23)
-    with patch("scripts.parse_logs.date") as mock_date:
-        mock_date.today.return_value = fixed_date
-        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
-        messages = get_today_messages(tz=timezone.utc)
+    messages = get_today_messages(tz=timezone.utc, target_date=date(2026, 3, 23))
 
     timestamps = [m["timestamp"] for m in messages]
     assert timestamps == sorted(timestamps)
@@ -151,25 +149,51 @@ def test_get_today_messages_no_projects_dir(tmp_path, monkeypatch):
     assert messages == []
 
 
-def test_get_today_messages_skips_old_mtime_files(tmp_path, monkeypatch):
-    """Files with mtime before today are skipped (mtime pre-filter)."""
+def test_get_today_messages_skips_future_mtime_files(tmp_path, monkeypatch):
+    """Files with mtime after target_date are skipped (mtime pre-filter)."""
     proj_dir = tmp_path / ".claude" / "projects" / "myproject"
     proj_dir.mkdir(parents=True)
     session_file = proj_dir / "abc-123.jsonl"
     session_file.write_text(FIXTURE_PATH.read_text())
 
-    # Set the file's mtime to yesterday
-    import time
-    yesterday_ts = time.time() - 86400
-    os.utime(session_file, (yesterday_ts, yesterday_ts))
-
+    after_target = datetime(2026, 3, 24, 0, 0, 0, tzinfo=timezone.utc)
+    os.utime(session_file, (after_target.timestamp(), after_target.timestamp()))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-    fixed_date = date(2026, 3, 23)
-    with patch("scripts.parse_logs.date") as mock_date:
-        mock_date.today.return_value = fixed_date
-        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
-        messages = get_today_messages(tz=timezone.utc)
+    messages = get_today_messages(tz=timezone.utc, target_date=date(2026, 3, 23))
+    assert messages == []
 
-    # File has old mtime so it should be skipped entirely
+
+def test_get_messages_for_date_returns_messages_from_that_date(tmp_path, monkeypatch):
+    proj_dir = tmp_path / ".claude" / "projects" / "myproject"
+    proj_dir.mkdir(parents=True)
+    session_file = proj_dir / "abc-123.jsonl"
+    session_file.write_text(FIXTURE_PATH.read_text())
+
+    fixed_ts = datetime(2026, 3, 23, 12, 0, 0, tzinfo=timezone.utc)
+    os.utime(session_file, (fixed_ts.timestamp(), fixed_ts.timestamp()))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    messages = get_today_messages(tz=timezone.utc, target_date=date(2026, 3, 23))
+    assert len(messages) == 4
+
+
+
+def test_get_messages_for_date_includes_same_day_mtime(tmp_path, monkeypatch):
+    proj_dir = tmp_path / ".claude" / "projects" / "myproject"
+    proj_dir.mkdir(parents=True)
+    session_file = proj_dir / "abc-123.jsonl"
+    session_file.write_text(FIXTURE_PATH.read_text())
+
+    same_day_ts = datetime(2026, 3, 23, 23, 59, 0, tzinfo=timezone.utc)
+    os.utime(session_file, (same_day_ts.timestamp(), same_day_ts.timestamp()))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    messages = get_today_messages(tz=timezone.utc, target_date=date(2026, 3, 23))
+    assert len(messages) == 4
+
+
+def test_get_today_messages_no_date_arg_uses_today(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    messages = get_today_messages()
     assert messages == []

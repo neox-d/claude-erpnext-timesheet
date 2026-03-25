@@ -72,27 +72,29 @@ def parse_content_blocks(content) -> str:
     return ""
 
 
-def get_today_messages(tz=None) -> list:
+def get_today_messages(tz=None, target_date=None) -> list:
     projects_dir = Path.home() / ".claude" / "projects"
     if not projects_dir.exists():
         return []
 
-    if tz is not None:
-        today = datetime.now(tz).date()
-    else:
-        today = date.today()
+    if target_date is None:
+        if tz is not None:
+            target_date = datetime.now(tz).date()
+        else:
+            target_date = date.today()
     messages = []
 
     for project_dir in projects_dir.iterdir():
         if not project_dir.is_dir():
             continue
         for jsonl_file in project_dir.glob("*.jsonl"):
-            # mtime pre-filter: skip files not modified today
+            # mtime pre-filter: skip files modified AFTER target_date
+            # (they can't contain messages from that date)
             if tz is not None:
                 mtime = datetime.fromtimestamp(jsonl_file.stat().st_mtime, tz=tz).date()
             else:
                 mtime = datetime.fromtimestamp(jsonl_file.stat().st_mtime).date()
-            if mtime < today:
+            if mtime > target_date:
                 continue
 
             try:
@@ -115,7 +117,7 @@ def get_today_messages(tz=None) -> list:
                     ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
                     ts_local = ts.astimezone(tz) if tz else ts.astimezone()
 
-                    if ts_local.date() != today:
+                    if ts_local.date() != target_date:
                         continue
 
                     msg = entry.get("message", {})
@@ -141,6 +143,7 @@ def main():
     parser.add_argument("--config", required=True, help="Path to timesheet.json")
     parser.add_argument("--validate-only", action="store_true",
                         help="Validate config and exit")
+    parser.add_argument("--date", help="Date to read logs for (YYYY-MM-DD). Defaults to today.")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -155,7 +158,8 @@ def main():
         return
 
     tz = get_timezone(config)
-    messages = get_today_messages(tz)
+    target_date = date.fromisoformat(args.date) if args.date else None
+    messages = get_today_messages(tz, target_date=target_date)
     print(json.dumps(messages, indent=2))
 
 
