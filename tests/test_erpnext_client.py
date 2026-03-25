@@ -181,3 +181,23 @@ def test_build_timesheet_doc_omits_task_when_empty_string():
     entries = [{"description": "Task A", "hours": 4.0, "task": ""}]
     doc = build_timesheet_doc(BASE_CONFIG, entries)
     assert "task" not in doc["time_logs"][0]
+
+
+def test_build_timesheet_doc_with_date_str_uses_that_date():
+    """date_str overrides today for start_date, end_date, and time log timestamps."""
+    entries = [{"description": "Task A", "hours": 2.0}]
+    doc = build_timesheet_doc(BASE_CONFIG, entries, date_str="2026-03-24")
+    assert doc["start_date"] == "2026-03-24"
+    assert doc["end_date"] == "2026-03-24"
+    assert doc["time_logs"][0]["from_time"].startswith("2026-03-24")
+    assert doc["time_logs"][0]["to_time"].startswith("2026-03-24")
+
+
+def test_build_timesheet_doc_without_date_str_uses_today():
+    """No date_str → dates use today (backward compat)."""
+    from datetime import date as date_cls
+    entries = [{"description": "Task A", "hours": 2.0}]
+    doc = build_timesheet_doc(BASE_CONFIG, entries)
+    today_str = date_cls.today().strftime("%Y-%m-%d")
+    assert doc["start_date"] == today_str
+    assert doc["end_date"] == today_str

@@ -71,12 +71,15 @@ class ERPNextClient:
         )
 
 
-def build_timesheet_doc(config: dict, entries: list) -> dict:
-    now = datetime.today()
-    today = now.strftime("%Y-%m-%d")
+def build_timesheet_doc(config: dict, entries: list, date_str: str = None) -> dict:
+    if date_str:
+        base = datetime.strptime(date_str, "%Y-%m-%d")
+    else:
+        base = datetime.today()
+    today = base.strftime("%Y-%m-%d")
     start_time_str = config.get("start_time", "09:00")
     h, m = map(int, start_time_str.split(":"))
-    current = now.replace(hour=h, minute=m, second=0, microsecond=0)
+    current = base.replace(hour=h, minute=m, second=0, microsecond=0)
 
     time_logs = []
     for entry in entries:
@@ -112,6 +115,7 @@ def main():
     parser.add_argument("--action", choices=["check-duplicate", "submit"], required=True)
     parser.add_argument("--entries", help="JSON array of approved entries (inline)")
     parser.add_argument("--entries-file", help="Path to JSON file with approved entries (preferred)")
+    parser.add_argument("--date", help="Date for timesheet operations (YYYY-MM-DD). Defaults to today.")
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -124,10 +128,10 @@ def main():
         print(f"ERROR: Invalid JSON in config: {e}", file=sys.stderr)
         sys.exit(1)
     client = ERPNextClient(config["url"], config["username"], decrypt_password(config["password"]))
-    today = datetime.today().strftime("%Y-%m-%d")
+    date_str = args.date if args.date else datetime.today().strftime("%Y-%m-%d")
 
     if args.action == "check-duplicate":
-        exists = client.check_duplicate(config["employee"], today)
+        exists = client.check_duplicate(config["employee"], date_str)
         print(json.dumps({"exists": exists}))
 
     elif args.action == "submit":
@@ -142,7 +146,9 @@ def main():
         else:
             print("ERROR: --entries-file or --entries required for submit action", file=sys.stderr)
             sys.exit(1)
-        doc = build_timesheet_doc(config, entries)
+        doc = build_timesheet_doc(config, entries, date_str=args.date)
+        # Pass args.date (None when omitted), NOT the resolved date_str variable.
+        # build_timesheet_doc handles None by calling datetime.today() internally.
         name = client.create_timesheet(doc)
         client.submit_timesheet(name)
         print(json.dumps({"success": True, "name": name}))
