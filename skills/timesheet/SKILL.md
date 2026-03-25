@@ -1,7 +1,7 @@
 ---
 name: timesheet
-description: Use when the user wants to submit today's ERPNext timesheet, log work hours, or fill in a timesheet from conversation history
-version: 1.0.0
+description: Use when the user wants to submit today's ERPNext timesheet, log work hours, fill in a timesheet from conversation history, or make a backdated timesheet entry for a previous date
+version: 1.2.0
 ---
 
 # ERPNext Timesheet
@@ -12,14 +12,27 @@ Automate daily ERPNext timesheet filling from your Claude conversation history.
 
 When this skill is invoked, follow these steps exactly. Do not skip steps.
 
-## Step 0: First-Time Setup
+## Step 0: Setup and Date Resolution
+
+**Resolve the target date first.** Read the invocation message:
+- If it specifies a past date (e.g. "for yesterday", "for 2026-03-24", "last Friday") — resolve it to `YYYY-MM-DD` format and store as `TARGET_DATE`.
+- Otherwise set `TARGET_DATE` to today's date (`YYYY-MM-DD`).
 
 Check if `~/.claude/timesheet.json` exists:
 ```bash
 test -f ~/.claude/timesheet.json && echo "EXISTS" || echo "MISSING"
 ```
 
-If `EXISTS`, skip to Step 1. If `MISSING`, run the interactive setup wizard:
+Do not display the output. Branch silently:
+
+**If MISSING** — run the setup wizard below.
+
+**If EXISTS** — read the config file to get `username` and `url`. Show:
+```
+<username> @ <url>. [Enter] to continue, [r] to reconfigure.
+```
+If the user presses Enter, skip to Step 1.
+If the user types `r`, run the setup wizard below. After the wizard completes, continue to Step 1.
 
 ### Setup Wizard
 
@@ -27,7 +40,6 @@ Tell the user:
 ```
 Welcome! Let's connect to your ERPNext instance.
 This will create ~/.claude/timesheet.json with your credentials and preferences.
-Note: credentials are stored in plaintext — ensure your home directory is appropriately secured.
 ```
 
 Ask the following questions one at a time:
@@ -74,7 +86,7 @@ Available activity types:
 
 Default project [<first project>]:
 Default activity type [<first activity type>]:
-Work hours per day [8]:
+Working hours per day [8]:
 Workday start time [09:00]:
 Timezone [<system timezone — run: timedatectl show --property=Timezone --value>]:
 ```
@@ -89,7 +101,7 @@ About to save:
   Employee:      <employee>
   Project:       <project>
   Activity type: <default_activity>
-  Work hours:    <work_hours>
+  Working hours: <work_hours>
   Start time:    <start_time>
   Timezone:      <timezone>
 
@@ -132,27 +144,27 @@ The `--pwd-file` flag injects the password into the config and deletes the temp 
 
 Tell the user: `Setup complete! Config saved to ~/.claude/timesheet.json`
 
-Then continue to Step 1 (config validation) to confirm everything is in order.
-
 ## Step 1: Validate Config
 
-Run:
+Run silently:
 ```bash
 python3 "scripts/parse_logs.py" --config ~/.claude/timesheet.json --validate-only
 ```
 
-If the command exits non-zero or output is not `OK`, print the error and stop. Do not proceed.
+Do not display the output. If the command exits non-zero, print the error output and stop. Do not proceed.
 
-## Step 2: Read Today's Conversations
+## Step 2: Read Work Context
 
-Tell the user: `Reading today's Claude conversations...`
+Tell the user: `Reading work context for <TARGET_DATE>...`
 
-Run:
+**Default (no other instruction):** run:
 ```bash
-python3 "scripts/parse_logs.py" --config ~/.claude/timesheet.json
+python3 "scripts/parse_logs.py" --config ~/.claude/timesheet.json --date "<TARGET_DATE>"
 ```
 
 This returns a JSON array of messages `[{role, text, cwd, timestamp}]`. Store this as your context.
+
+**If the user specified a different data source** (e.g. "use my git commits", "I'll describe what I did"), read from that source instead. Adapt naturally — run `git log`, read files, or ask the user to describe their work. The goal is the same: gather enough context to synthesize task entries in Step 3.
 
 Parse `work_hours` from `~/.claude/timesheet.json` for use in Step 3 and Step 5.
 
@@ -176,21 +188,21 @@ If no messages were found, tell the user and skip to Step 5 with an empty list.
 
 ## Step 4: Check for Duplicate
 
-Run:
+Run silently:
 ```bash
-python3 "scripts/erpnext_client.py" --config ~/.claude/timesheet.json --action check-duplicate
+python3 "scripts/erpnext_client.py" --config ~/.claude/timesheet.json --action check-duplicate --date "<TARGET_DATE>"
 ```
 
-If the output contains `"exists": true`, ask:
-`Warning: A timesheet already exists for today. Continue anyway? [y/n]`
+Do not display the raw output. If the output contains `"exists": true`, warn:
+`A timesheet already exists for <TARGET_DATE>. Continue anyway? [y/n]`
 If user answers `n`, stop.
 
 ## Step 5: Present Draft TUI
 
-Read today's date. Read `project` from `~/.claude/timesheet.json`. Display:
+Read `project` from `~/.claude/timesheet.json`. Display:
 
 ```
-Draft timesheet for YYYY-MM-DD (Xh total):
+Draft timesheet for <TARGET_DATE> (Xh total):
 ──────────────────────────────────────────
 1. [Xh] Description of task one          [no task]
 2. [Xh] Description of task two          [TASK-2026-01052]
@@ -201,7 +213,7 @@ Draft timesheet for YYYY-MM-DD (Xh total):
 [e] Edit an entry
 [d] Delete an entry
 [+] Add an entry (for work done outside Claude)
-[h] Change hours for today
+[h] Redistribute hours
 [t] Assign task to an entry
 [q] Quit without submitting
 
@@ -255,7 +267,7 @@ Prompt freehand (for work done outside Claude — meetings, calls, etc.):
 ```
 Add to list with no task assigned. Use `[t]` to assign a task to it afterwards. Re-display TUI.
 
-### [h] Change hours for today
+### [h] Redistribute hours
 
 Prompt: `New total hours [<current total>]:`
 
@@ -321,7 +333,7 @@ Where `TASK_PLACEHOLDER` is:
   "description": "<confirmed description>",
   "project": "<project from config>",
   "hours": <entry's current hours>,
-  "date": "<today YYYY-MM-DD>"
+  "date": "<TARGET_DATE>"
 }
 ```
 
@@ -351,6 +363,7 @@ python3 -c "import json, sys; json.dump(ENTRIES_PLACEHOLDER, open(sys.argv[1], '
 python3 "scripts/erpnext_client.py" \
   --config ~/.claude/timesheet.json \
   --action submit \
+  --date "<TARGET_DATE>" \
   --entries-file "$ENTRIES_FILE"
 rm -f "$ENTRIES_FILE"
 ```
