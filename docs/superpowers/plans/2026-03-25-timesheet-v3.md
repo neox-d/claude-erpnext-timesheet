@@ -17,9 +17,11 @@
 | `skills/timesheet/scripts/parse_logs.py` | Add `--date` arg; update `get_today_messages` signature; fix mtime filter direction |
 | `skills/timesheet/scripts/erpnext_client.py` | Add `--date` arg; pass into `build_timesheet_doc`; replace `datetime.today()` |
 | `skills/timesheet/SKILL.md` | UX cleanup, Step 0 reconfigure, date resolution, date propagation, data source flexibility |
-| `tests/test_parse_logs.py` | Add `--date` tests |
+| `tests/test_parse_logs.py` | Add `--date` tests; fix two existing tests that regress after mtime filter change |
 | `tests/test_erpnext_client.py` | Add `--date` tests for `build_timesheet_doc` and CLI |
 | `.claude-plugin/plugin.json` | Bump version to `1.2.0` |
+
+**Note on `task_manager.py`:** The spec lists it as an edit because the task date comes from the SKILL.md `TASK_PLACEHOLDER` payload (`task_input["date"]` at line 99). No code change to `task_manager.py` is needed — the fix is entirely in SKILL.md (Step 3.6). The `_next_month_end(date.today())` call at line 112 (project extension deadline) is out of scope per the spec.
 
 ---
 
@@ -40,11 +42,15 @@
 
 - [ ] **Step 1.1: Write failing tests**
 
-Add to `tests/test_parse_logs.py`:
+Add to `tests/test_parse_logs.py`. First add this import near the top with the other imports (the file already imports `date` and `datetime` from `datetime` — add an alias):
 
 ```python
-from datetime import date as date_type
+from datetime import date as date_type  # alias to avoid shadowing in test bodies
+```
 
+Then add the new tests:
+
+```python
 def test_get_messages_for_date_returns_messages_from_that_date(tmp_path, monkeypatch):
     """--date 2026-03-23 returns messages from that date."""
     proj_dir = tmp_path / ".claude" / "projects" / "myproject"
@@ -213,14 +219,61 @@ def main():
     print(json.dumps(messages, indent=2))
 ```
 
-- [ ] **Step 1.4: Run all new tests + existing parse_logs tests**
+- [ ] **Step 1.4: Run all parse_logs tests and fix the two that regress**
 
 ```bash
 cd /home/neox/Work/erpnext-timesheet
 python -m pytest tests/test_parse_logs.py -v
 ```
 
-Expected: all pass. If `test_get_today_messages_skips_old_mtime_files` fails, check — that test sets mtime to yesterday (relative to real today), which should still be `<= target_date` (fixture date 2026-03-23). It may need the same `target_date` pin used in `test_get_today_messages_filters_today`.
+Two existing tests will fail because after the change, `get_today_messages(tz=timezone.utc)` (no `target_date`) does `datetime.now(tz).date()` which is not patched by the old `patch("scripts.parse_logs.date")` mock. Fix both:
+
+**Fix `test_get_today_messages_sorted_by_timestamp`:** add an explicit mtime set and pass `target_date`:
+
+```python
+def test_get_today_messages_sorted_by_timestamp(tmp_path, monkeypatch):
+    proj_dir = tmp_path / ".claude" / "projects" / "myproject"
+    proj_dir.mkdir(parents=True)
+    session_file = proj_dir / "abc-123.jsonl"
+    session_file.write_text(FIXTURE_PATH.read_text())
+
+    # Set mtime to the fixture date so mtime pre-filter includes the file
+    fixed_ts = datetime(2026, 3, 23, 12, 0, 0, tzinfo=timezone.utc)
+    os.utime(session_file, (fixed_ts.timestamp(), fixed_ts.timestamp()))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    messages = get_today_messages(tz=timezone.utc, target_date=date_type(2026, 3, 23))
+
+    timestamps = [m["timestamp"] for m in messages]
+    assert timestamps == sorted(timestamps)
+```
+
+**Fix `test_get_today_messages_skips_old_mtime_files`:** pass `target_date` and set mtime to one day after it (so `mtime.date() > target_date` is True, file is skipped):
+
+```python
+def test_get_today_messages_skips_future_mtime_files(tmp_path, monkeypatch):
+    """Files with mtime after target_date are skipped (mtime pre-filter)."""
+    proj_dir = tmp_path / ".claude" / "projects" / "myproject"
+    proj_dir.mkdir(parents=True)
+    session_file = proj_dir / "abc-123.jsonl"
+    session_file.write_text(FIXTURE_PATH.read_text())
+
+    # Set mtime to one day after the target date — should be skipped
+    after_target = datetime(2026, 3, 24, 0, 0, 0, tzinfo=timezone.utc)
+    os.utime(session_file, (after_target.timestamp(), after_target.timestamp()))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    messages = get_today_messages(tz=timezone.utc, target_date=date_type(2026, 3, 23))
+    assert messages == []
+```
+
+Note: rename the function from `test_get_today_messages_skips_old_mtime_files` to `test_get_today_messages_skips_future_mtime_files` to match the new filter semantics.
+
+After applying both fixes, re-run:
+```bash
+python -m pytest tests/test_parse_logs.py -v
+```
+Expected: all pass.
 
 - [ ] **Step 1.5: Commit**
 
@@ -366,6 +419,8 @@ def main():
             print("ERROR: --entries-file or --entries required for submit action", file=sys.stderr)
             sys.exit(1)
         doc = build_timesheet_doc(config, entries, date_str=args.date)
+        # Note: pass args.date (None when omitted), NOT the resolved date_str variable.
+        # build_timesheet_doc handles None by calling datetime.today() internally.
         name = client.create_timesheet(doc)
         client.submit_timesheet(name)
         print(json.dumps({"success": True, "name": name}))
