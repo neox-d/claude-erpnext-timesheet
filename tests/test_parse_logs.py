@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from scripts.parse_logs import (
+from mcp_server import (
     parse_content_blocks,
     validate_config,
     get_today_messages,
@@ -112,8 +112,8 @@ def test_get_today_messages_filters_today(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     # Patch both datetime.now (used when tz is passed) and date.today (used when tz is None)
-    with patch("scripts.parse_logs.datetime") as mock_datetime, \
-         patch("scripts.parse_logs.date") as mock_date:
+    with patch("mcp_server.datetime") as mock_datetime, \
+         patch("mcp_server.date") as mock_date:
         mock_datetime.now.return_value = fixed_dt
         mock_datetime.fromisoformat.side_effect = datetime.fromisoformat
         mock_datetime.fromtimestamp.side_effect = datetime.fromtimestamp

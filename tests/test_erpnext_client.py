@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from scripts.erpnext_client import ERPNextClient, build_timesheet_doc
+from mcp_server import ERPNextClient, build_timesheet_doc
 
 
 def make_client():
