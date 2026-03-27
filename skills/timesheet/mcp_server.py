@@ -8,7 +8,6 @@ import json
 import re
 import requests
 import stat
-import tempfile
 from datetime import date, datetime, timedelta
 from urllib.parse import quote
 
@@ -328,9 +327,7 @@ def create_task(config: dict, task_input: dict) -> tuple[str, list[str]]:
         resp = _attempt_create()
 
     if not resp.ok:
-        import sys as _sys
-        print(f"ERROR: Failed to create task: {resp.text[:300]}", file=_sys.stderr)
-        _sys.exit(1)
+        raise requests.HTTPError(response=resp)
 
     task_name = resp.json()["data"]["name"]
     return task_name, notes
