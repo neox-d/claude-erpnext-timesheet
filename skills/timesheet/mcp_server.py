@@ -485,3 +485,29 @@ def read_messages(date_str: str) -> list:
         tz = get_timezone(config)
     date_cls = date
     return get_today_messages(tz=tz, target_date=date_cls.fromisoformat(date_str))
+
+
+@mcp.tool()
+def check_duplicate(date_str: str) -> dict:
+    """Check whether a timesheet already exists for the given date (YYYY-MM-DD)."""
+    config_path = Path.home() / ".claude" / "timesheet.json"
+    config = json.loads(config_path.read_text())
+    password = decrypt_password(config["password"])
+    client = ERPNextClient(config["url"], config["username"], password)
+    client.login()
+    result = client.check_duplicate(config["employee"], date_str)
+    return {"exists": result}
+
+
+@mcp.tool()
+def submit_timesheet(date_str: str, entries: list) -> dict:
+    """Build and submit a timesheet for the given date (YYYY-MM-DD) with the provided entries."""
+    config_path = Path.home() / ".claude" / "timesheet.json"
+    config = json.loads(config_path.read_text())
+    password = decrypt_password(config["password"])
+    client = ERPNextClient(config["url"], config["username"], password)
+    client.login()
+    doc = build_timesheet_doc(config, entries, date_str=date_str)
+    name = client.create_timesheet(doc)
+    client.submit_timesheet(name)
+    return {"success": True, "name": name}

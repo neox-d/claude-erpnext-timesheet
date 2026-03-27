@@ -3,7 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from mcp_server import get_status, validate_config, read_messages
+from mcp_server import get_status, validate_config, read_messages, check_duplicate, submit_timesheet
+import mcp_server
 
 
 VALID_CONFIG = {
@@ -121,3 +122,64 @@ def test_read_messages_returns_list(tmp_path, monkeypatch):
     result = read_messages("2026-03-27")
 
     assert result == []
+
+
+# --- Helpers for check_duplicate / submit_timesheet tests ---
+
+def make_config_file(tmp_path: Path) -> None:
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    config = {
+        "url": "https://erp.example.com",
+        "username": "user@example.com",
+        "password": "testpass",
+        "employee": "EMP-001",
+        "company": "ACME Corp",
+        "project": "PROJ-001",
+        "default_activity": "Development",
+        "work_hours": 8,
+        "start_time": "09:00",
+    }
+    (claude_dir / "timesheet.json").write_text(json.dumps(config))
+
+
+# --- check_duplicate MCP tool ---
+
+def test_check_duplicate_exists(tmp_path, monkeypatch):
+    """check_duplicate returns {"exists": True} when ERPNextClient.check_duplicate returns True."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "check_duplicate", lambda self, employee, date_str: True)
+
+    result = check_duplicate("2026-03-27")
+
+    assert result == {"exists": True}
+
+
+def test_check_duplicate_not_exists(tmp_path, monkeypatch):
+    """check_duplicate returns {"exists": False} when ERPNextClient.check_duplicate returns False."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "check_duplicate", lambda self, employee, date_str: False)
+
+    result = check_duplicate("2026-03-27")
+
+    assert result == {"exists": False}
+
+
+# --- submit_timesheet MCP tool ---
+
+def test_submit_timesheet_success(tmp_path, monkeypatch):
+    """submit_timesheet returns {"success": True, "name": "TS-0001"} on success."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "create_timesheet", lambda self, doc: "TS-0001")
+    monkeypatch.setattr(mcp_server.ERPNextClient, "submit_timesheet", lambda self, name: None)
+
+    entries = [{"description": "Work", "hours": 8.0, "activity_type": "Development"}]
+    result = submit_timesheet("2026-03-27", entries)
+
+    assert result == {"success": True, "name": "TS-0001"}
