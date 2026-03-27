@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -10,6 +11,10 @@ import requests
 import stat
 from datetime import date, datetime, timedelta
 from urllib.parse import quote
+
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("erpnext-timesheet")
 
 try:
     from zoneinfo import ZoneInfo
@@ -414,3 +419,41 @@ def write_config(config: dict, path: str) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(config, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# MCP tools
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def get_status() -> dict:
+    """Return the current configuration status of the timesheet plugin."""
+    config_path = Path.home() / ".claude" / "timesheet.json"
+    launcher_path = Path.home() / ".claude" / "timesheet-setup"
+    setup_script = Path(__file__).parent / "scripts" / "timesheet_setup.py"
+
+    if not launcher_path.exists():
+        launcher_path.parent.mkdir(parents=True, exist_ok=True)
+        launcher_path.write_text(
+            "#!/usr/bin/env python3\n"
+            "import runpy\n"
+            f"runpy.run_path({str(setup_script)!r}, run_name='__main__')\n"
+        )
+        os.chmod(
+            launcher_path,
+            stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH,
+        )
+
+    if not config_path.exists():
+        return {"configured": False, "setup_command": "python3 ~/.claude/timesheet-setup"}
+
+    config = json.loads(config_path.read_text())
+    return {
+        "configured": True,
+        "username": config.get("username"),
+        "url": config.get("url"),
+        "work_hours": config.get("work_hours", 8),
+        "project": config.get("project"),
+        "default_activity": config.get("default_activity"),
+        "setup_command": "python3 ~/.claude/timesheet-setup",
+    }
