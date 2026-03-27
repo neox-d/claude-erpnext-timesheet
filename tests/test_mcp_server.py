@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_server import get_status
+from mcp_server import get_status, validate_config, read_messages
 
 
 VALID_CONFIG = {
@@ -75,3 +75,49 @@ def test_get_status_launcher_content_runs_setup_script(tmp_path, monkeypatch):
     launcher_path = tmp_path / ".claude" / "timesheet-setup"
     content = launcher_path.read_text()
     assert "timesheet_setup.py" in content
+
+
+# --- validate_config MCP tool ---
+
+def test_validate_config_valid(tmp_path, monkeypatch):
+    """validate_config returns valid=True and no errors for a complete config."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    _write_config(tmp_path)
+
+    result = validate_config()
+
+    assert result == {"valid": True, "errors": []}
+
+
+def test_validate_config_missing_field(tmp_path, monkeypatch):
+    """validate_config returns valid=False and errors mentioning the missing field."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    config_without_employee = {k: v for k, v in VALID_CONFIG.items() if k != "employee"}
+    _write_config(tmp_path, config_without_employee)
+
+    result = validate_config()
+
+    assert result["valid"] is False
+    assert any("employee" in e for e in result["errors"])
+
+
+def test_validate_config_no_config_file(tmp_path, monkeypatch):
+    """validate_config returns valid=False and non-empty errors when file is missing."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+
+    result = validate_config()
+
+    assert result["valid"] is False
+    assert len(result["errors"]) > 0
+
+
+# --- read_messages MCP tool ---
+
+def test_read_messages_returns_list(tmp_path, monkeypatch):
+    """read_messages returns an empty list when there is no projects dir."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    _write_config(tmp_path)
+
+    result = read_messages("2026-03-27")
+
+    assert result == []

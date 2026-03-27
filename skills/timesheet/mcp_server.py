@@ -122,7 +122,7 @@ def build_timesheet_doc(config: dict, entries: list, date_str: str = None) -> di
 # Log-parsing logic (from scripts/parse_logs.py)
 # ---------------------------------------------------------------------------
 
-def validate_config(config: dict) -> list:
+def _validate_config_fields(config: dict) -> list:
     required = ["url", "username", "password", "employee", "company",
                 "project", "default_activity", "work_hours"]
     errors = []
@@ -457,3 +457,31 @@ def get_status() -> dict:
         "default_activity": config.get("default_activity"),
         "setup_command": "python3 ~/.claude/timesheet-setup",
     }
+
+
+@mcp.tool()
+def validate_config() -> dict:
+    """Validate the timesheet configuration file."""
+    config_path = Path.home() / ".claude" / "timesheet.json"
+    if not config_path.exists():
+        return {
+            "valid": False,
+            "errors": ["Config file not found. Run python3 ~/.claude/timesheet-setup to set up."],
+        }
+    config = json.loads(config_path.read_text())
+    errors = _validate_config_fields(config)
+    if errors:
+        return {"valid": False, "errors": errors}
+    return {"valid": True, "errors": []}
+
+
+@mcp.tool()
+def read_messages(date_str: str) -> list:
+    """Read Claude conversation messages for the given date (YYYY-MM-DD)."""
+    config_path = Path.home() / ".claude" / "timesheet.json"
+    tz = None
+    if config_path.exists():
+        config = json.loads(config_path.read_text())
+        tz = get_timezone(config)
+    date_cls = date
+    return get_today_messages(tz=tz, target_date=date_cls.fromisoformat(date_str))

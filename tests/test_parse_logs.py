@@ -9,7 +9,7 @@ import pytest
 
 from mcp_server import (
     parse_content_blocks,
-    validate_config,
+    _validate_config_fields,
     get_today_messages,
 )
 
@@ -53,44 +53,44 @@ VALID_CONFIG = {
 }
 
 
-def test_validate_config_valid():
-    assert validate_config(VALID_CONFIG) == []
+def test_validate_config_fields_valid():
+    assert _validate_config_fields(VALID_CONFIG) == []
 
 
-def test_validate_config_missing_password():
+def test_validate_config_fields_missing_password():
     cfg = {**VALID_CONFIG, "password": ""}
-    errors = validate_config(cfg)
+    errors = _validate_config_fields(cfg)
     assert any("password" in e for e in errors)
 
 
-def test_validate_config_missing_employee():
+def test_validate_config_fields_missing_employee():
     cfg = {**VALID_CONFIG}
     del cfg["employee"]
-    errors = validate_config(cfg)
+    errors = _validate_config_fields(cfg)
     assert any("employee" in e for e in errors)
 
 
-def test_validate_config_negative_work_hours():
+def test_validate_config_fields_negative_work_hours():
     cfg = {**VALID_CONFIG, "work_hours": -2}
-    errors = validate_config(cfg)
+    errors = _validate_config_fields(cfg)
     assert any("work_hours" in e for e in errors)
 
 
-def test_validate_config_zero_work_hours():
+def test_validate_config_fields_zero_work_hours():
     cfg = {**VALID_CONFIG, "work_hours": 0}
-    errors = validate_config(cfg)
+    errors = _validate_config_fields(cfg)
     assert any("work_hours" in e for e in errors)
 
 
-def test_validate_config_invalid_start_time():
+def test_validate_config_fields_invalid_start_time():
     cfg = {**VALID_CONFIG, "start_time": "9am"}
-    errors = validate_config(cfg)
+    errors = _validate_config_fields(cfg)
     assert any("start_time" in e for e in errors)
 
 
-def test_validate_config_valid_start_time():
+def test_validate_config_fields_valid_start_time():
     cfg = {**VALID_CONFIG, "start_time": "08:30"}
-    assert validate_config(cfg) == []
+    assert _validate_config_fields(cfg) == []
 
 
 # --- get_today_messages ---
