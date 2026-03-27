@@ -248,7 +248,7 @@ def _login(config: dict) -> requests.Session:
     return session
 
 
-def get_tasks(config: dict, project: str) -> list:
+def _get_tasks_from_erpnext(config: dict, project: str) -> list:
     """Fetch all non-cancelled tasks for a project."""
     base = config["url"].rstrip("/")
     session = _login(config)
@@ -295,7 +295,7 @@ def extend_project_end_date(config: dict, project: str, new_date: str) -> dict:
     return {"success": True}
 
 
-def create_task(config: dict, task_input: dict) -> tuple[str, list[str]]:
+def _create_task_in_erpnext(config: dict, task_input: dict) -> tuple[str, list[str]]:
     """
     Create a task in ERPNext. Returns (task_name, notes).
     notes is a list of informational strings (e.g. about project extension).
@@ -511,3 +511,31 @@ def submit_timesheet(date_str: str, entries: list) -> dict:
     name = client.create_timesheet(doc)
     client.submit_timesheet(name)
     return {"success": True, "name": name}
+
+
+@mcp.tool()
+def get_tasks(project: str) -> list:
+    """Return all non-cancelled tasks for the given project."""
+    config_path = Path.home() / ".claude" / "timesheet.json"
+    config = json.loads(config_path.read_text())
+    return _get_tasks_from_erpnext(config, project)
+
+
+@mcp.tool()
+def create_task(subject: str, description: str, project: str, hours: float, date_str: str) -> dict:
+    """Create a task in ERPNext. Auto-extends project end date on InvalidDates errors."""
+    config_path = Path.home() / ".claude" / "timesheet.json"
+    config = json.loads(config_path.read_text())
+    task_input = {
+        "subject": subject,
+        "description": description,
+        "project": project,
+        "hours": hours,
+        "date": date_str,
+    }
+    name, notes = _create_task_in_erpnext(config, task_input)
+    return {"name": name, "notes": notes}
+
+
+if __name__ == "__main__":
+    mcp.run()

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_server import get_status, validate_config, read_messages, check_duplicate, submit_timesheet
+from mcp_server import get_status, validate_config, read_messages, check_duplicate, submit_timesheet, get_tasks, create_task
 import mcp_server
 
 
@@ -183,3 +183,121 @@ def test_submit_timesheet_success(tmp_path, monkeypatch):
     result = submit_timesheet("2026-03-27", entries)
 
     assert result == {"success": True, "name": "TS-0001"}
+
+
+# --- get_tasks MCP tool ---
+
+def test_get_tasks_returns_tasks_with_exp_end_date(tmp_path, monkeypatch):
+    """get_tasks returns a list of tasks including exp_end_date field."""
+    from unittest.mock import MagicMock
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+
+    login_resp = MagicMock()
+    login_resp.raise_for_status = lambda: None
+
+    get_resp = MagicMock()
+    get_resp.raise_for_status = lambda: None
+    get_resp.json.return_value = {
+        "data": [
+            {"name": "TASK-001", "subject": "Fix bug", "status": "Open", "exp_end_date": "2026-03-20"}
+        ]
+    }
+
+    monkeypatch.setattr("requests.Session.post", lambda self, url, **kwargs: login_resp)
+    monkeypatch.setattr("requests.Session.get", lambda self, url, **kwargs: get_resp)
+
+    result = get_tasks("PROJ-001")
+
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert "exp_end_date" in result[0]
+
+
+def test_get_tasks_empty_project(tmp_path, monkeypatch):
+    """get_tasks returns an empty list when the project has no tasks."""
+    from unittest.mock import MagicMock
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+
+    login_resp = MagicMock()
+    login_resp.raise_for_status = lambda: None
+
+    get_resp = MagicMock()
+    get_resp.raise_for_status = lambda: None
+    get_resp.json.return_value = {"data": []}
+
+    monkeypatch.setattr("requests.Session.post", lambda self, url, **kwargs: login_resp)
+    monkeypatch.setattr("requests.Session.get", lambda self, url, **kwargs: get_resp)
+
+    result = get_tasks("PROJ-001")
+
+    assert result == []
+
+
+# --- create_task MCP tool ---
+
+def test_create_task_success(tmp_path, monkeypatch):
+    """create_task returns {"name": ..., "notes": []} on a successful POST."""
+    from unittest.mock import MagicMock
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+
+    login_resp = MagicMock()
+    login_resp.raise_for_status = lambda: None
+
+    create_resp = MagicMock()
+    create_resp.ok = True
+    create_resp.status_code = 201
+    create_resp.json.return_value = {"data": {"name": "TASK-002"}}
+
+    monkeypatch.setattr("requests.Session.post", lambda self, url, **kwargs: login_resp)
+    monkeypatch.setattr("requests.Session.request", lambda self, method, url, **kwargs: create_resp)
+
+    result = create_task("Fix bug", "Detailed description", "PROJ-001", 4.0, "2026-03-27")
+
+    assert result == {"name": "TASK-002", "notes": []}
+
+
+def test_create_task_extends_project_on_invalid_dates(tmp_path, monkeypatch):
+    """create_task auto-extends the project end date on 417/InvalidDates and retries."""
+    from unittest.mock import MagicMock
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+
+    login_resp = MagicMock()
+    login_resp.raise_for_status = lambda: None
+
+    # First call: POST create task -> 417 InvalidDates
+    resp_417 = MagicMock()
+    resp_417.ok = False
+    resp_417.status_code = 417
+    resp_417.json.return_value = {"exc_type": "InvalidDates", "exc": "some message"}
+
+    # Second call: PUT extend project -> ok
+    resp_extend = MagicMock()
+    resp_extend.ok = True
+    resp_extend.raise_for_status = lambda: None
+
+    # Third call: POST retry create -> success
+    resp_retry = MagicMock()
+    resp_retry.ok = True
+    resp_retry.status_code = 201
+    resp_retry.json.return_value = {"data": {"name": "TASK-003"}}
+
+    side_effects = [resp_417, resp_extend, resp_retry]
+    call_count = {"n": 0}
+
+    def mock_request(self, method, url, **kwargs):
+        resp = side_effects[call_count["n"]]
+        call_count["n"] += 1
+        return resp
+
+    monkeypatch.setattr("requests.Session.post", lambda self, url, **kwargs: login_resp)
+    monkeypatch.setattr("requests.Session.request", mock_request)
+
+    result = create_task("Fix bug", "Desc", "PROJ-001", 4.0, "2026-03-27")
+
+    assert result["name"] == "TASK-003"
+    assert len(result["notes"]) > 0
+    assert "extended" in result["notes"][0]
