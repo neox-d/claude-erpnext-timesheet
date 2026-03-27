@@ -295,7 +295,7 @@ def create_task(config: dict, task_input: dict) -> tuple[str, list[str]]:
     Create a task in ERPNext. Returns (task_name, notes).
     notes is a list of informational strings (e.g. about project extension).
     Auto-extends project end date on InvalidDates, then retries once.
-    Raises SystemExit(1) on unrecoverable error.
+    Raises requests.HTTPError on unrecoverable error.
     """
     base = config["url"].rstrip("/")
     session = _login(config)
