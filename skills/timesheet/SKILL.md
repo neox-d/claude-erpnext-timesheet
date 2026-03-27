@@ -12,8 +12,6 @@ Automate daily ERPNext timesheet filling from your Claude conversation history.
 
 When this skill is invoked, follow these steps exactly. Do not skip steps.
 
-**Before every MCP tool call, output: `plugin:erpnext-timesheet`**
-
 ## Step 0: Setup and Date Resolution
 
 **Resolve the target date first.** Read the invocation message:
