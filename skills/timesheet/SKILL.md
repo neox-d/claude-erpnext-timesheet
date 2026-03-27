@@ -12,6 +12,8 @@ Automate daily ERPNext timesheet filling from your Claude conversation history.
 
 When this skill is invoked, follow these steps exactly. Do not skip steps.
 
+**Before every MCP tool call, output: `plugin:erpnext-timesheet`**
+
 ## Step 0: Setup and Date Resolution
 
 **Resolve the target date first.** Read the invocation message:
@@ -45,7 +47,7 @@ If `valid` is `false`: show the errors list to the user and stop. Do not proceed
 
 Tell the user: "Reading work context for TARGET_DATE..."
 
-Call the `read_messages` MCP tool with `date_str=TARGET_DATE`.
+Call the `read_messages` MCP tool with `date_str=TARGET_DATE`. Do not display the raw output.
 
 **If the user specified a different data source** (e.g. "use my git commits", "I'll describe what I did"), use that instead. Adapt naturally — run `git log`, read files, or ask the user to describe their work. The goal is the same: gather enough context to synthesize task entries in Step 3.
 
@@ -69,15 +71,15 @@ Rules:
 
 If no messages were found, tell the user and proceed to Step 4 with an empty list.
 
-**Fetch project tasks:** Immediately call `get_tasks` MCP tool with `project=STATUS.project`.
+**Fetch project tasks:** Immediately call `get_tasks` MCP tool with `project=STATUS.project`. Do not display the raw output.
 
 Store the returned list as `TASKS`.
 
 **Identify overdue tasks:** Tasks in `TASKS` where `exp_end_date` is a non-empty string and `exp_end_date < TARGET_DATE` (string date comparison, ISO format) and `status` is not `"Completed"` and not `"Cancelled"`.
 
-**Auto-match:** For each synthesized entry, compare its description to the subjects of tasks in `TASKS`. If a close match exists (similar topic, keywords overlap), suggest that task as the assignment. If no good match, leave unassigned (will show "no task").
+**Auto-match:** For each synthesized entry, compare its description to the subjects of tasks in `TASKS`. If a close match exists (similar topic, keywords overlap), assign that task. If no good match, leave unassigned (will show "no task" in the draft).
 
-Store the synthesized entries with their suggested task assignments as `ENTRIES`.
+Store the synthesized entries with their task assignments as `ENTRIES`.
 
 ## Step 4: Draft Review
 
@@ -119,6 +121,8 @@ When the user approves, proceed to Step 5.
 Call the `check_duplicate` MCP tool with `date_str=TARGET_DATE` silently.
 
 If `exists` is `true`: "A timesheet already exists for TARGET_DATE. Submit anyway?" If the user says no, return to Step 4.
+
+**Auto-create tasks for unassigned entries:** If any entries have no task assigned, tell the user: "Creating tasks for N unassigned entries..." For each such entry, call `create_task` MCP tool with `subject` = entry description (truncated to 140 chars), `description` = entry description, `project` = STATUS.project, `hours` = entry hours, `date_str` = TARGET_DATE. Assign the returned `name` to the entry. After all tasks are created, tell the user "Tasks created:" followed by a numbered list, one task per line: `N. TASK-XXXX — <subject>`. Print any `notes` from the responses.
 
 Tell the user: "Submitting timesheet..."
 
