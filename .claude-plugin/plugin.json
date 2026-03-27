@@ -8,5 +8,11 @@
   "repository": "https://github.com/neox-d/claude-erpnext-timesheet",
   "homepage": "https://github.com/neox-d/claude-erpnext-timesheet",
   "license": "MIT",
-  "keywords": ["erpnext", "timesheet", "frappe", "productivity", "time-tracking"]
+  "keywords": ["erpnext", "timesheet", "frappe", "productivity", "time-tracking"],
+  "mcpServers": {
+    "erpnext-timesheet": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/skills/timesheet/mcp_server.py"]
+    }
+  }
 }
