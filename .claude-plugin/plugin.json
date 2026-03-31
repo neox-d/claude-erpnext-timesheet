@@ -1,7 +1,7 @@
 {
   "name": "erpnext-timesheet",
   "description": "Automate daily ERPNext timesheet filling from your Claude conversation history",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "author": {
     "name": "neox-d"
   },
@@ -11,8 +11,8 @@
   "keywords": ["erpnext", "timesheet", "frappe", "productivity", "time-tracking"],
   "mcpServers": {
     "erpnext-timesheet": {
-      "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/skills/timesheet/mcp_server.py"]
+      "command": "bash",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/hooks-handlers/run-mcp.sh"]
     }
   }
 }
