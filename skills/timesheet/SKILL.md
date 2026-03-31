@@ -1,7 +1,7 @@
 ---
 name: timesheet
 description: Use when the user wants to submit today's ERPNext timesheet, log work hours, fill in a timesheet from conversation history, or make a backdated timesheet entry for a previous date. Uses MCP tools to interact with ERPNext.
-version: 2.0.0
+version: 2.0.3
 ---
 
 # ERPNext Timesheet
@@ -14,118 +14,108 @@ When this skill is invoked, follow these steps exactly. Do not skip steps.
 
 ## Step 0: Setup and Date Resolution
 
-**Resolve the target date first.** Read the invocation message:
-- If it specifies a past date (e.g. "for yesterday", "for 2026-03-24", "last Friday") — resolve it to `YYYY-MM-DD` format and store as `TARGET_DATE`.
-- Otherwise set `TARGET_DATE` to today's date (`YYYY-MM-DD`).
+**Resolve the target date.** Read the invocation message:
+- If it specifies a past date (e.g. "for yesterday", "for 2026-03-24", "last Friday") — resolve it to `YYYY-MM-DD` and store as `TARGET_DATE`.
+- Otherwise use today's date.
 
-Announce: "Using erpnext-timesheet to log work for TARGET_DATE..."
+Call `check_config` silently. Store the full response as `STATUS`.
 
-Call the `get_status` MCP tool.
+**If `configured` is `false`:**
 
-Branch on the result:
+Tell the user:
 
-**`configured` is `false`:** Tell the user:
-> "To get started, run `python3 ~/.claude/timesheet-setup` in a new terminal, then come back and say done."
-Wait for the user to say done. Call `get_status` again. If still not configured, repeat. Once configured, proceed.
+> Open a new terminal and run:
+> ```
+> STATUS.setup_command
+> ```
+> Enter your credentials, then come back here.
 
-**`configured` is `true`:** Tell the user:
-> "Logged in as `<username>` (`<url>`) — shall I continue, or do you want to reconfigure?"
-- If continue: proceed to Step 1.
-- If reconfigure: "Run `python3 ~/.claude/timesheet-setup` in a new terminal, then say done." Wait and re-call `get_status`. Once configured, proceed to Step 1.
+Wait for the user to return. Call `check_config` again. If still not configured, repeat.
 
-No setup wizard. No bash commands. Store the full `get_status` response as `STATUS` (it contains `work_hours`, `project`, `default_activity` used in later steps).
+Once configured, read `~/.claude/timesheet.json` to get `_projects` and `_activity_types`. Use `AskUserQuestion` with two questions:
+- **Default Project**: up to 4 options from `_projects` (show `label`, value is `id`); mark current default as "(Selected)"
+- **Default Activity**: always offer these 4 options: Development, Development Testing, Debugging, Debug & Fix — plus the user can type Other for anything else
 
-## Step 1: Validate Config
+Call `update_settings` with the selected `project` and `activity_type`.
 
-Call the `validate_config` MCP tool silently. Do not display the raw output.
+Announce: `Logging work for TARGET_DATE — <username> @ <url>`
 
-If `valid` is `false`: show the errors list to the user and stop. Do not proceed.
+**If `configured` is `true` and user mentioned reconfiguring:**
 
-## Step 2: Read Work Context
+Tell the user to run `STATUS.setup_command` in a new terminal, then re-run the selector and call `update_settings`.
 
-Tell the user: "Reading work context for TARGET_DATE..."
+Otherwise proceed directly to Step 1.
 
-Call the `read_messages` MCP tool with `date_str=TARGET_DATE`. Do not display the raw output.
+## Step 1: Read Work Context
 
-**If the user specified a different data source** (e.g. "use my git commits", "I'll describe what I did"), use that instead. Adapt naturally — run `git log`, read files, or ask the user to describe their work. The goal is the same: gather enough context to synthesize task entries in Step 3.
+Call `read_history` with `date=TARGET_DATE` silently. Store as `MESSAGES`.
 
-Store the messages as `MESSAGES`.
+**If the user specified a different source** (git commits, manual description, a file), use that instead — run `git log`, read files, or ask. The goal is the same: gather enough context to synthesize entries in Step 2.
 
-## Step 3: Synthesize + Fetch Tasks
+If no messages found, tell the user briefly and continue to Step 3 with an empty list.
 
-Tell the user: "Summarizing work done..."
+## Step 2: Synthesize + Fetch Tasks
 
-From `MESSAGES`, identify distinct work themes. Create task entries where:
-- **description**: short professional summary of the work, max 80 characters, no filler ("worked on", "helped with")
-- **hours**: `work_hours / number_of_tasks` (use `STATUS.work_hours`), rounded to 1 decimal. Last task absorbs rounding remainder so total equals work_hours exactly.
-- **activity_type**: use `STATUS.default_activity`
-- **task**: not set at synthesis time — suggested via auto-matching below
+From `MESSAGES`, identify distinct work themes. Create entries where:
+- **description**: concise professional summary, max 80 chars, no filler phrases ("worked on", "helped with")
+- **hours**: `STATUS.work_hours / number_of_tasks`, rounded to 1 decimal; last entry absorbs rounding remainder so total equals `work_hours` exactly
+- **activity_type**: `STATUS.default_activity`
+- **task**: not set yet — assigned via auto-matching below
 
-Rules:
-- Group closely related messages into one task (e.g. "fix bug" + "write test for fix" = one task)
-- Ignore meta-conversation (greetings, "thanks", off-topic chat)
+Grouping rules:
+- Merge closely related messages (e.g. "fix bug" + "write test for fix" = one entry)
+- Ignore meta-conversation (greetings, off-topic chat)
 - Focus on deliverables: what was built, fixed, reviewed, or designed
-- Minimum 1 task, maximum 8 tasks
+- 1–8 entries
 
-If no messages were found, tell the user and proceed to Step 4 with an empty list.
+Call `list_tasks` with `project=STATUS.project` silently. Store as `TASKS`.
 
-**Fetch project tasks:** Immediately call `get_tasks` MCP tool with `project=STATUS.project`. Do not display the raw output.
+**Identify overdue tasks:** entries in `TASKS` where `exp_end_date` is non-empty, `exp_end_date < TARGET_DATE`, and `status` is not `"Completed"` or `"Cancelled"`.
 
-Store the returned list as `TASKS`.
+**Auto-match:** for each entry, find the closest task in `TASKS` by keyword overlap. Assign if a good match exists; leave unassigned otherwise.
 
-**Identify overdue tasks:** Tasks in `TASKS` where `exp_end_date` is a non-empty string and `exp_end_date < TARGET_DATE` (string date comparison, ISO format) and `status` is not `"Completed"` and not `"Cancelled"`.
+Store synthesized entries as `ENTRIES`.
 
-**Auto-match:** For each synthesized entry, compare its description to the subjects of tasks in `TASKS`. If a close match exists (similar topic, keywords overlap), assign that task. If no good match, leave unassigned (will show "no task" in the draft).
+## Step 3: Draft Review
 
-Store the synthesized entries with their task assignments as `ENTRIES`.
-
-## Step 4: Draft Review
-
-If overdue tasks were found in Step 3, tell the user:
-> "You have N overdue task(s): [list each as: name — subject (N days overdue)]. I've suggested task assignments in the draft below."
+If overdue tasks exist, list them before the draft:
+> **Overdue:** TASK-XXXX — subject (N days), ...
 
 Display the draft:
+
 ```
-Draft timesheet for TARGET_DATE (Xh total):
-──────────────────────────────────────────
-1. [Xh] Entry description one        → TASK-XXXX (suggested)
-2. [Xh] Entry description two        → no task
-──────────────────────────────────────────
+TARGET_DATE — Xh total
+─────────────────────────────────────────
+1. [Xh] Description one          → TASK-XXXX
+2. [Xh] Description two          → no task
+─────────────────────────────────────────
+Submit, or let me know what to change.
 ```
 
-Close with:
-> "Ready to submit, or would you like to make changes? You can edit, delete, or add an entry, reassign or create a task, redistribute hours, or I can submit as-is."
+**Handle edits conversationally.** `TASKS` is already in context — no extra MCP call unless the user asks to create a new task.
 
-**Handle responses conversationally.** No bracket shortcuts. Since `TASKS` is already in context from Step 3, no additional MCP call is needed for task assignment (unless the user asks to create a new task).
+- Edit description → update entry, show draft
+- Delete entry → remove, recalculate hours, show draft
+- Add entry → append, show draft
+- Assign by name or topic → look up in `TASKS`, assign, show draft
+- Create new task → ask for subject (pre-fill from entry), call `create_task`, assign returned name, show draft
+- Redistribute hours → recalculate evenly, show draft
+- "Submit" / "Looks good" / "Go ahead" → Step 4
 
-Examples of what the user might say and how to respond:
-- "Edit entry 2 description to X" — update that entry's description in `ENTRIES`, show updated draft.
-- "Delete entry 3" — remove it from `ENTRIES`, recalculate hours, show updated draft.
-- "Add an entry: Reviewed PRs, 1 hour" — add it to `ENTRIES`, show updated draft.
-- "Assign entry 1 to TASK-001" — look up that task name in `TASKS`, assign it, show updated draft.
-- "Assign entry 2 to the bug fix task" — find the closest match in `TASKS` by subject, confirm with user, assign it, show updated draft.
-- "Create a new task for entry 1" — ask for subject and description (pre-fill from entry), call `create_task` MCP tool, assign returned name, print any notes, show updated draft.
-- "Redistribute hours to 6h total" — recalculate hours evenly, last entry absorbs remainder, show updated draft.
-- "Submit" or "Looks good" or "Go ahead" — proceed to Step 5.
+**Hours mismatch:** if total ≠ `STATUS.work_hours` at approval, note it: "Total is Xh, default is Yh — proceed?" and wait.
 
-**Hours mismatch:** If total hours ≠ `STATUS.work_hours` when the user approves, note it conversationally: "Total is Xh (your configured default is Yh) — proceed?" and wait for confirmation.
+**Empty entries:** if user tries to submit with no entries, ask them to add some first.
 
-**Empty entries:** If the user tries to submit with no entries, tell them there are no entries and ask them to add some.
+## Step 4: Duplicate Check + Submit
 
-When the user approves, proceed to Step 5.
+Call `check_existing` with `date=TARGET_DATE` silently.
 
-## Step 5: Duplicate Check + Submit
+If `exists` is `true`: "A timesheet already exists for TARGET_DATE — submit anyway?" If no, return to Step 3.
 
-Call the `check_duplicate` MCP tool with `date_str=TARGET_DATE` silently.
+**Auto-create tasks for unassigned entries:** for each unassigned entry, call `create_task` with `subject` = description (max 140 chars), `description` = description, `project` = STATUS.project, `hours` = entry hours, `date` = TARGET_DATE. Assign the returned `name`. After all are created, show a brief list: `TASK-XXXX — subject` for each. Print any `notes`.
 
-If `exists` is `true`: "A timesheet already exists for TARGET_DATE. Submit anyway?" If the user says no, return to Step 4.
+Call `submit` with `date=TARGET_DATE` and `entries=ENTRIES`. Each entry must include `description`, `hours`, `activity_type`; include `task` only if assigned.
 
-**Auto-create tasks for unassigned entries:** If any entries have no task assigned, tell the user: "Creating tasks for N unassigned entries..." For each such entry, call `create_task` MCP tool with `subject` = entry description (truncated to 140 chars), `description` = entry description, `project` = STATUS.project, `hours` = entry hours, `date_str` = TARGET_DATE. Assign the returned `name` to the entry. After all tasks are created, tell the user "Tasks created:" followed by a numbered list, one task per line: `N. TASK-XXXX — <subject>`. Print any `notes` from the responses.
+Success: `Submitted — TS-XXXX`
 
-Tell the user: "Submitting timesheet..."
-
-Call the `submit_timesheet` MCP tool with `date_str=TARGET_DATE` and `entries=ENTRIES`. Each entry must include `description`, `hours`, `activity_type`. Include `task` key only for entries with a task assigned.
-
-If success: "Timesheet submitted. Reference: TS-XXXX."
-
-If failure: show the error and ask "Retry?" Maximum 3 total attempts. After 3 failed attempts, tell the user to check their ERPNext connection and try again later.
+Failure: show the error, ask "Retry?" Max 3 attempts. After 3, tell the user to check their ERPNext connection.

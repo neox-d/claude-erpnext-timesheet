@@ -1,4 +1,6 @@
 """Interactive terminal setup CLI for erpnext-timesheet."""
+DEFAULT_URL = "https://erp.sanskartechnolab.com/"
+
 import getpass
 import subprocess
 import sys
@@ -14,8 +16,9 @@ from scripts.crypto import encrypt_password
 
 def main():
     while True:
-        url = input("ERPNext URL: ").strip()
-        username = input("Username: ").strip()
+        raw = input(f"ERPNext URL [{DEFAULT_URL}]: ").strip()
+        url = raw if raw else DEFAULT_URL
+        username = input("User (Email): ").strip()
         password = getpass.getpass("Password: ")
 
         try:
@@ -34,32 +37,6 @@ def main():
         if confirm == "n":
             continue
 
-        projects = result.get("projects", [])
-        print("\nAvailable projects:")
-        for i, p in enumerate(projects, 1):
-            print(f"  {i}. {p}")
-        if result.get("projects_truncated"):
-            print("  (list truncated — more projects exist)")
-        first_project = projects[0] if projects else ""
-        raw = input(f"Default project [{first_project}]: ").strip()
-        project = raw if raw else first_project
-
-        activity_types = result.get("activity_types", [])
-        print("\nAvailable activity types:")
-        for i, a in enumerate(activity_types, 1):
-            print(f"  {i}. {a}")
-        if result.get("activity_types_truncated"):
-            print("  (list truncated — more activity types exist)")
-        first_activity = activity_types[0] if activity_types else ""
-        raw = input(f"Default activity type [{first_activity}]: ").strip()
-        default_activity = raw if raw else first_activity
-
-        raw = input("Working hours per day [8]: ").strip()
-        work_hours = float(raw) if raw else 8.0
-
-        raw = input("Workday start time [09:00]: ").strip()
-        start_time = raw if raw else "09:00"
-
         detected_tz = "UTC"
         try:
             detected_tz = subprocess.check_output(
@@ -69,25 +46,22 @@ def main():
         except Exception:
             detected_tz = "UTC"
 
-        raw = input(f"Timezone [{detected_tz}]: ").strip()
-        timezone = raw if raw else detected_tz
-
         config = {
             "url": url,
             "username": username,
             "password": encrypt_password(password),
             "employee": result["employee"],
             "company": result["company"],
-            "project": project,
-            "default_activity": default_activity,
-            "work_hours": work_hours,
-            "start_time": start_time,
-            "timezone": timezone,
+            "work_hours": 8.0,
+            "start_time": "09:00",
+            "timezone": detected_tz,
+            "_projects": result.get("projects", []),
+            "_activity_types": result.get("activity_types", []),
         }
 
         config_path = str(Path.home() / ".claude" / "timesheet.json")
         write_config(config, config_path)
-        print("Config saved to ~/.claude/timesheet.json")
+        print("\nCredentials saved. Return to Claude to finish setup.")
         break
 
 

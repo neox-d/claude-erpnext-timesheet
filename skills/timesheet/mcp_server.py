@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 
@@ -8,8 +7,7 @@ import calendar
 import json
 import re
 import requests
-import stat
-from datetime import date, datetime, timedelta
+from datetime import date as date_type, datetime, timedelta
 from urllib.parse import quote
 
 from mcp.server.fastmcp import FastMCP
@@ -175,7 +173,7 @@ def get_today_messages(tz=None, target_date=None) -> list:
         if tz is not None:
             target_date = datetime.now(tz).date()
         else:
-            target_date = date.today()
+            target_date = date_type.today()
     messages = []
 
     for project_dir in projects_dir.iterdir():
@@ -267,14 +265,14 @@ def _get_tasks_from_erpnext(config: dict, project: str) -> list:
     return resp.json().get("data", [])
 
 
-def _next_month_end(today: date) -> str:
+def _next_month_end(today: date_type) -> str:
     """Return last calendar day of the month following today, as YYYY-MM-DD."""
     if today.month == 12:
         next_year, next_month = today.year + 1, 1
     else:
         next_year, next_month = today.year, today.month + 1
     last_day = calendar.monthrange(next_year, next_month)[1]
-    return date(next_year, next_month, last_day).isoformat()
+    return date_type(next_year, next_month, last_day).isoformat()
 
 
 def _extend_project(session: requests.Session, base: str, project: str, new_date: str) -> None:
@@ -324,7 +322,7 @@ def _create_task_in_erpnext(config: dict, task_input: dict) -> tuple[str, list[s
 
     if resp.status_code == 417 and resp.json().get("exc_type") == "InvalidDates":
         # Auto-extend project end date to end of next month
-        new_end = _next_month_end(date.today())
+        new_end = _next_month_end(date_type.today())
         _extend_project(session, base, doc["project"], new_end)
         notes.append(f"Note: project end date extended to {new_end}")
 
@@ -375,10 +373,13 @@ def discover(url: str, username: str, password: str) -> dict:
     # Discover projects
     resp = session.get(
         f"{base}/api/resource/Project",
-        params={"fields": json.dumps(["name"]), "limit": 50},
+        params={"fields": json.dumps(["name", "project_name"]), "limit": 50},
     )
     resp.raise_for_status()
-    projects = [p["name"] for p in resp.json().get("data", [])]
+    projects = [
+        {"id": p["name"], "label": f"{p['name']} — {p['project_name']}" if p.get("project_name") and p["project_name"] != p["name"] else p["name"]}
+        for p in resp.json().get("data", [])
+    ]
 
     # Discover activity types
     resp = session.get(
@@ -426,26 +427,12 @@ def write_config(config: dict, path: str) -> None:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def get_status() -> dict:
+def check_config() -> dict:
     """Return the current configuration status of the timesheet plugin."""
     config_path = Path.home() / ".claude" / "timesheet.json"
-    launcher_path = Path.home() / ".claude" / "timesheet-setup"
-    setup_script = Path(__file__).parent / "scripts" / "timesheet_setup.py"
-
-    if not launcher_path.exists():
-        launcher_path.parent.mkdir(parents=True, exist_ok=True)
-        launcher_path.write_text(
-            "#!/usr/bin/env python3\n"
-            "import runpy\n"
-            f"runpy.run_path({str(setup_script)!r}, run_name='__main__')\n"
-        )
-        os.chmod(
-            launcher_path,
-            stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH,
-        )
 
     if not config_path.exists():
-        return {"configured": False, "setup_command": "python3 ~/.claude/timesheet-setup"}
+        return {"configured": False, "setup_command": "timesheet-setup"}
 
     config = json.loads(config_path.read_text())
     return {
@@ -455,7 +442,7 @@ def get_status() -> dict:
         "work_hours": config.get("work_hours", 8),
         "project": config.get("project"),
         "default_activity": config.get("default_activity"),
-        "setup_command": "python3 ~/.claude/timesheet-setup",
+        "setup_command": "timesheet-setup",
     }
 
 
@@ -466,7 +453,7 @@ def validate_config() -> dict:
     if not config_path.exists():
         return {
             "valid": False,
-            "errors": ["Config file not found. Run python3 ~/.claude/timesheet-setup to set up."],
+            "errors": ["Config file not found. Run timesheet-setup to set up."],
         }
     config = json.loads(config_path.read_text())
     errors = _validate_config_fields(config)
@@ -476,45 +463,44 @@ def validate_config() -> dict:
 
 
 @mcp.tool()
-def read_messages(date_str: str) -> list:
+def read_history(date: str) -> list:
     """Read Claude conversation messages for the given date (YYYY-MM-DD)."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     tz = None
     if config_path.exists():
         config = json.loads(config_path.read_text())
         tz = get_timezone(config)
-    date_cls = date
-    return get_today_messages(tz=tz, target_date=date_cls.fromisoformat(date_str))
+    return get_today_messages(tz=tz, target_date=date_type.fromisoformat(date))
 
 
 @mcp.tool()
-def check_duplicate(date_str: str) -> dict:
+def check_existing(date: str) -> dict:
     """Check whether a timesheet already exists for the given date (YYYY-MM-DD)."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     config = json.loads(config_path.read_text())
     password = decrypt_password(config["password"])
     client = ERPNextClient(config["url"], config["username"], password)
     client.login()
-    result = client.check_duplicate(config["employee"], date_str)
+    result = client.check_duplicate(config["employee"], date)
     return {"exists": result}
 
 
 @mcp.tool()
-def submit_timesheet(date_str: str, entries: list) -> dict:
+def submit(date: str, entries: list) -> dict:
     """Build and submit a timesheet for the given date (YYYY-MM-DD) with the provided entries."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     config = json.loads(config_path.read_text())
     password = decrypt_password(config["password"])
     client = ERPNextClient(config["url"], config["username"], password)
     client.login()
-    doc = build_timesheet_doc(config, entries, date_str=date_str)
+    doc = build_timesheet_doc(config, entries, date_str=date)
     name = client.create_timesheet(doc)
     client.submit_timesheet(name)
     return {"success": True, "name": name}
 
 
 @mcp.tool()
-def get_tasks(project: str) -> list:
+def list_tasks(project: str) -> list:
     """Return all non-cancelled tasks for the given project."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     config = json.loads(config_path.read_text())
@@ -522,7 +508,7 @@ def get_tasks(project: str) -> list:
 
 
 @mcp.tool()
-def create_task(subject: str, description: str, project: str, hours: float, date_str: str) -> dict:
+def create_task(subject: str, description: str, project: str, hours: float, date: str) -> dict:
     """Create a task in ERPNext. Auto-extends project end date on InvalidDates errors."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     config = json.loads(config_path.read_text())
@@ -531,10 +517,37 @@ def create_task(subject: str, description: str, project: str, hours: float, date
         "description": description,
         "project": project,
         "hours": hours,
-        "date": date_str,
+        "date": date,
     }
     name, notes = _create_task_in_erpnext(config, task_input)
     return {"name": name, "notes": notes}
+
+
+@mcp.tool()
+def update_settings(project: str = None, activity_type: str = None,
+                    work_hours: float = None, start_time: str = None,
+                    timezone: str = None) -> dict:
+    """Update one or more config settings. Clears temporary _projects/_activity_types lists."""
+    config_path = Path.home() / ".claude" / "timesheet.json"
+    config = json.loads(config_path.read_text())
+
+    if project is not None:
+        config["project"] = project
+    if activity_type is not None:
+        config["default_activity"] = activity_type
+    if work_hours is not None:
+        config["work_hours"] = work_hours
+    if start_time is not None:
+        config["start_time"] = start_time
+    if timezone is not None:
+        config["timezone"] = timezone
+
+    # Remove temp keys written by set_password.py
+    config.pop("_projects", None)
+    config.pop("_activity_types", None)
+
+    config_path.write_text(json.dumps(config, indent=2))
+    return {"updated": True}
 
 
 if __name__ == "__main__":
