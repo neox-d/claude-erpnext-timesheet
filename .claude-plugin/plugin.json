@@ -1,7 +1,7 @@
 {
   "name": "erpnext-timesheet",
   "description": "Automate daily ERPNext timesheet filling from your Claude conversation history",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "author": {
     "name": "neox-d"
   },
