@@ -20,7 +20,15 @@ When this skill is invoked, follow these steps exactly. Do not skip steps.
 
 Call `isReady` silently. Store the full response as `STATUS`.
 
-**If `configured` is `false`:**
+**If `configured` is `false` and `needs_defaults` is `true`:**
+
+Credentials are saved but defaults are missing. Use `AskUserQuestion` with two questions using `STATUS._projects` and `STATUS._activity_types`:
+- **Default Project**: up to 4 options from `_projects` (show `label`, value is `id`); mark current default as "(Selected)"
+- **Default Activity**: always offer these 4 options: Development, Development Testing, Debugging, Debug & Fix — plus the user can type Other for anything else
+
+Call `updateSettings` with the selected `project` and `activity_type`. Call `isReady` again and store as `STATUS`.
+
+**If `configured` is `false` and `needs_defaults` is not set:**
 
 Tell the user:
 
@@ -32,7 +40,7 @@ Tell the user:
 
 Wait for the user to return. Call `isReady` again. If still not configured, repeat.
 
-Once configured, read `~/.claude/timesheet.json` to get `_projects` and `_activity_types`. Use `AskUserQuestion` with two questions:
+Once configured, use `AskUserQuestion` with two questions using `STATUS._projects` and `STATUS._activity_types`:
 - **Default Project**: up to 4 options from `_projects` (show `label`, value is `id`); mark current default as "(Selected)"
 - **Default Activity**: always offer these 4 options: Development, Development Testing, Debugging, Debug & Fix — plus the user can type Other for anything else
 
@@ -42,7 +50,7 @@ Announce: `Logging work for TARGET_DATE — <username> @ <url>`
 
 **If `configured` is `true` and user mentioned reconfiguring:**
 
-Tell the user to run `STATUS.setup_command` in a new terminal, then re-run the selector and call `updateSettings`.
+Tell the user to run `STATUS.setup_command` in a new terminal, then come back. Call `isReady` again — it will return `needs_defaults: true` so the selector flow above will run automatically.
 
 Otherwise proceed directly to Step 1.
 

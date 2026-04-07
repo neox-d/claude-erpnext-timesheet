@@ -435,6 +435,11 @@ def isReady() -> dict:
         return {"configured": False, "setup_command": "timesheet-setup"}
 
     config = json.loads(config_path.read_text())
+    if not config.get("project") or not config.get("default_activity"):
+        return {"configured": False, "needs_defaults": True,
+                "_projects": config.get("_projects", []),
+                "_activity_types": config.get("_activity_types", [])}
+
     return {
         "configured": True,
         "username": config.get("username"),
