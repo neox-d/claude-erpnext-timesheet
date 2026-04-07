@@ -1,7 +1,7 @@
 ---
 name: timesheet
 description: Use when the user wants to submit today's ERPNext timesheet, log work hours, fill in a timesheet from conversation history, or make a backdated timesheet entry for a previous date. Uses MCP tools to interact with ERPNext.
-version: 2.0.3
+version: 2.0.5
 ---
 
 # ERPNext Timesheet
