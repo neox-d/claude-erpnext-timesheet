@@ -427,7 +427,7 @@ def write_config(config: dict, path: str) -> None:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def checkConfig() -> dict:
+def isReady() -> dict:
     """Return the current configuration status of the timesheet plugin."""
     config_path = Path.home() / ".claude" / "timesheet.json"
 

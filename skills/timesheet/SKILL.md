@@ -18,7 +18,7 @@ When this skill is invoked, follow these steps exactly. Do not skip steps.
 - If it specifies a past date (e.g. "for yesterday", "for 2026-03-24", "last Friday") — resolve it to `YYYY-MM-DD` and store as `TARGET_DATE`.
 - Otherwise use today's date.
 
-Call `checkConfig` silently. Store the full response as `STATUS`.
+Call `isReady` silently. Store the full response as `STATUS`.
 
 **If `configured` is `false`:**
 
@@ -30,7 +30,7 @@ Tell the user:
 > ```
 > Enter your credentials, then come back here.
 
-Wait for the user to return. Call `checkConfig` again. If still not configured, repeat.
+Wait for the user to return. Call `isReady` again. If still not configured, repeat.
 
 Once configured, read `~/.claude/timesheet.json` to get `_projects` and `_activity_types`. Use `AskUserQuestion` with two questions:
 - **Default Project**: up to 4 options from `_projects` (show `label`, value is `id`); mark current default as "(Selected)"
