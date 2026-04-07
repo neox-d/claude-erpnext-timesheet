@@ -18,7 +18,7 @@ When this skill is invoked, follow these steps exactly. Do not skip steps.
 - If it specifies a past date (e.g. "for yesterday", "for 2026-03-24", "last Friday") — resolve it to `YYYY-MM-DD` and store as `TARGET_DATE`.
 - Otherwise use today's date.
 
-Call `check_config` silently. Store the full response as `STATUS`.
+Call `checkConfig` silently. Store the full response as `STATUS`.
 
 **If `configured` is `false`:**
 
@@ -30,25 +30,25 @@ Tell the user:
 > ```
 > Enter your credentials, then come back here.
 
-Wait for the user to return. Call `check_config` again. If still not configured, repeat.
+Wait for the user to return. Call `checkConfig` again. If still not configured, repeat.
 
 Once configured, read `~/.claude/timesheet.json` to get `_projects` and `_activity_types`. Use `AskUserQuestion` with two questions:
 - **Default Project**: up to 4 options from `_projects` (show `label`, value is `id`); mark current default as "(Selected)"
 - **Default Activity**: always offer these 4 options: Development, Development Testing, Debugging, Debug & Fix — plus the user can type Other for anything else
 
-Call `update_settings` with the selected `project` and `activity_type`.
+Call `updateSettings` with the selected `project` and `activity_type`.
 
 Announce: `Logging work for TARGET_DATE — <username> @ <url>`
 
 **If `configured` is `true` and user mentioned reconfiguring:**
 
-Tell the user to run `STATUS.setup_command` in a new terminal, then re-run the selector and call `update_settings`.
+Tell the user to run `STATUS.setup_command` in a new terminal, then re-run the selector and call `updateSettings`.
 
 Otherwise proceed directly to Step 1.
 
 ## Step 1: Read Work Context
 
-Call `read_history` with `date=TARGET_DATE` silently. Store as `MESSAGES`.
+Call `readHistory` with `date=TARGET_DATE` silently. Store as `MESSAGES`.
 
 **If the user specified a different source** (git commits, manual description, a file), use that instead — run `git log`, read files, or ask. The goal is the same: gather enough context to synthesize entries in Step 2.
 
@@ -68,7 +68,7 @@ Grouping rules:
 - Focus on deliverables: what was built, fixed, reviewed, or designed
 - 1–8 entries
 
-Call `list_tasks` with `project=STATUS.project` silently. Store as `TASKS`.
+Call `listTasks` with `project=STATUS.project` silently. Store as `TASKS`.
 
 **Identify overdue tasks:** entries in `TASKS` where `exp_end_date` is non-empty, `exp_end_date < TARGET_DATE`, and `status` is not `"Completed"` or `"Cancelled"`.
 
@@ -98,7 +98,7 @@ Submit, or let me know what to change.
 - Delete entry → remove, recalculate hours, show draft
 - Add entry → append, show draft
 - Assign by name or topic → look up in `TASKS`, assign, show draft
-- Create new task → ask for subject (pre-fill from entry), call `create_task`, assign returned name, show draft
+- Create new task → ask for subject (pre-fill from entry), call `createTask`, assign returned name, show draft
 - Redistribute hours → recalculate evenly, show draft
 - "Submit" / "Looks good" / "Go ahead" → Step 4
 
@@ -108,13 +108,13 @@ Submit, or let me know what to change.
 
 ## Step 4: Duplicate Check + Submit
 
-Call `check_existing` with `date=TARGET_DATE` silently.
+Call `checkExisting` with `date=TARGET_DATE` silently.
 
 If `exists` is `true`: "A timesheet already exists for TARGET_DATE — submit anyway?" If no, return to Step 3.
 
-**Auto-create tasks for unassigned entries:** for each unassigned entry, call `create_task` with `subject` = description (max 140 chars), `description` = description, `project` = STATUS.project, `hours` = entry hours, `date` = TARGET_DATE. Assign the returned `name`. After all are created, show a brief list: `TASK-XXXX — subject` for each. Print any `notes`.
+**Auto-create tasks for unassigned entries:** for each unassigned entry, call `createTask` with `subject` = description (max 140 chars), `description` = description, `project` = STATUS.project, `hours` = entry hours, `date` = TARGET_DATE. Assign the returned `name`. After all are created, show a brief list: `TASK-XXXX — subject` for each. Print any `notes`.
 
-Call `submit` with `date=TARGET_DATE` and `entries=ENTRIES`. Each entry must include `description`, `hours`, `activity_type`; include `task` only if assigned.
+Call `submitTimesheet` with `date=TARGET_DATE` and `entries=ENTRIES`. Each entry must include `description`, `hours`, `activity_type`; include `task` only if assigned.
 
 Success: `Submitted — TS-XXXX`
 

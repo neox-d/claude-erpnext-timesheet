@@ -427,7 +427,7 @@ def write_config(config: dict, path: str) -> None:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def check_config() -> dict:
+def checkConfig() -> dict:
     """Return the current configuration status of the timesheet plugin."""
     config_path = Path.home() / ".claude" / "timesheet.json"
 
@@ -447,7 +447,7 @@ def check_config() -> dict:
 
 
 @mcp.tool()
-def validate_config() -> dict:
+def validateConfig() -> dict:
     """Validate the timesheet configuration file."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     if not config_path.exists():
@@ -463,7 +463,7 @@ def validate_config() -> dict:
 
 
 @mcp.tool()
-def read_history(date: str) -> list:
+def readHistory(date: str) -> list:
     """Read Claude conversation messages for the given date (YYYY-MM-DD)."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     tz = None
@@ -474,7 +474,7 @@ def read_history(date: str) -> list:
 
 
 @mcp.tool()
-def check_existing(date: str) -> dict:
+def checkExisting(date: str) -> dict:
     """Check whether a timesheet already exists for the given date (YYYY-MM-DD)."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     config = json.loads(config_path.read_text())
@@ -486,7 +486,7 @@ def check_existing(date: str) -> dict:
 
 
 @mcp.tool()
-def submit(date: str, entries: list) -> dict:
+def submitTimesheet(date: str, entries: list) -> dict:
     """Build and submit a timesheet for the given date (YYYY-MM-DD) with the provided entries."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     config = json.loads(config_path.read_text())
@@ -500,7 +500,7 @@ def submit(date: str, entries: list) -> dict:
 
 
 @mcp.tool()
-def list_tasks(project: str) -> list:
+def listTasks(project: str) -> list:
     """Return all non-cancelled tasks for the given project."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     config = json.loads(config_path.read_text())
@@ -508,7 +508,7 @@ def list_tasks(project: str) -> list:
 
 
 @mcp.tool()
-def create_task(subject: str, description: str, project: str, hours: float, date: str) -> dict:
+def createTask(subject: str, description: str, project: str, hours: float, date: str) -> dict:
     """Create a task in ERPNext. Auto-extends project end date on InvalidDates errors."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     config = json.loads(config_path.read_text())
@@ -524,9 +524,9 @@ def create_task(subject: str, description: str, project: str, hours: float, date
 
 
 @mcp.tool()
-def update_settings(project: str = None, activity_type: str = None,
-                    work_hours: float = None, start_time: str = None,
-                    timezone: str = None) -> dict:
+def updateSettings(project: str = None, activity_type: str = None,
+                   work_hours: float = None, start_time: str = None,
+                   timezone: str = None) -> dict:
     """Update one or more config settings. Clears temporary _projects/_activity_types lists."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     config = json.loads(config_path.read_text())
