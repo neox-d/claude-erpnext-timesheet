@@ -81,19 +81,32 @@ class ERPNextClient:
         self._request("PUT", f"/api/resource/Timesheet/{name}", json={"docstatus": 1})
 
     def list_tasks(self, project: str) -> list:
-        result = self._request(
-            "GET",
-            "/api/resource/Task",
-            params={
-                "filters": json.dumps([
-                    ["project", "=", project],
-                    ["status", "!=", "Cancelled"],
-                ]),
-                "fields": json.dumps(["name", "subject", "status", "exp_end_date"]),
-                "limit": 50,
-            },
-        )
-        return result.get("data", [])
+        tasks = []
+        page_size = 100
+        start = 0
+        while True:
+            result = self._request(
+                "GET",
+                "/api/resource/Task",
+                params={
+                    "filters": json.dumps([
+                        ["project", "=", project],
+                        ["status", "not in", ["Completed", "Cancelled"]],
+                    ]),
+                    "fields": json.dumps([
+                        "name", "subject", "status", "exp_end_date",
+                        "is_group", "parent_task",
+                    ]),
+                    "limit_page_length": page_size,
+                    "limit_start": start,
+                },
+            )
+            page = result.get("data", [])
+            tasks.extend(page)
+            if len(page) < page_size:
+                break
+            start += page_size
+        return tasks
 
     def extend_project(self, project: str, new_date: str) -> None:
         self._request(

@@ -260,3 +260,47 @@ def test_build_tree_orphan_parent_treated_as_root():
     result = _build_tree(tasks)
     assert len(result) == 1
     assert result[0]["name"] == "T-2"
+
+
+# --- list_tasks (updated) ---
+
+def test_list_tasks_filter_excludes_completed_and_cancelled():
+    client = make_client()
+    client._authenticated = True
+    with patch.object(client, "_request", return_value={"data": []}) as mock_req:
+        client.list_tasks("PROJ-001")
+    params = mock_req.call_args[1]["params"]
+    filters = json.loads(params["filters"])
+    assert ["status", "not in", ["Completed", "Cancelled"]] in filters
+
+
+def test_list_tasks_fetches_is_group_and_parent_task_fields():
+    client = make_client()
+    client._authenticated = True
+    with patch.object(client, "_request", return_value={"data": []}) as mock_req:
+        client.list_tasks("PROJ-001")
+    params = mock_req.call_args[1]["params"]
+    fields = json.loads(params["fields"])
+    assert "is_group" in fields
+    assert "parent_task" in fields
+
+
+def test_list_tasks_paginates_until_short_page():
+    client = make_client()
+    client._authenticated = True
+    page1 = {"data": [{"name": f"T-{i}"} for i in range(100)]}
+    page2 = {"data": [{"name": "T-100"}, {"name": "T-101"}]}
+    with patch.object(client, "_request", side_effect=[page1, page2]) as mock_req:
+        result = client.list_tasks("PROJ-001")
+    assert len(result) == 102
+    assert mock_req.call_count == 2
+
+
+def test_list_tasks_stops_after_single_short_page():
+    client = make_client()
+    client._authenticated = True
+    page = {"data": [{"name": "T-001"}]}
+    with patch.object(client, "_request", side_effect=[page]) as mock_req:
+        result = client.list_tasks("PROJ-001")
+    assert len(result) == 1
+    assert mock_req.call_count == 1
