@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from mcp_server import ERPNextClient, build_timesheet_doc
+from mcp_server import ERPNextClient, build_timesheet_doc, _build_tree
 
 
 def make_client():
@@ -204,9 +204,6 @@ def test_build_timesheet_doc_without_date_str_uses_today():
 
 
 # --- _build_tree ---
-
-from mcp_server import _build_tree
-
 
 def test_build_tree_empty():
     assert _build_tree([]) == []
