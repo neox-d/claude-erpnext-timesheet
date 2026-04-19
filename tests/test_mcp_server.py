@@ -58,9 +58,27 @@ def test_submitTimesheet_success(tmp_path, monkeypatch):
     assert submitTimesheet("2026-03-27", entries) == {"success": True, "name": "TS-0001"}
 
 
-# --- listTasks (flat, pre-tree — replaced in Task 4) ---
+# --- listTasks (tree structure) ---
 
-def test_listTasks_returns_list(tmp_path, monkeypatch):
+def test_listTasks_returns_tree_structure(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
+    flat = [
+        {"name": "T-1", "subject": "Group", "is_group": 1, "status": "Open",
+         "exp_end_date": "", "parent_task": None},
+        {"name": "T-2", "subject": "Leaf", "is_group": 0, "status": "Open",
+         "exp_end_date": "", "parent_task": "T-1"},
+    ]
+    monkeypatch.setattr(mcp_server.ERPNextClient, "list_tasks",
+                        lambda self, project: flat)
+    result = listTasks("PROJ-001")
+    assert len(result) == 1
+    assert result[0]["name"] == "T-1"
+    assert result[0]["children"][0]["name"] == "T-2"
+
+
+def test_listTasks_empty_project(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)

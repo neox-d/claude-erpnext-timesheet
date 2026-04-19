@@ -523,7 +523,8 @@ def listTasks(project: str) -> list:
     """Return active (non-completed, non-cancelled) tasks for the given project."""
     config = _load_config()
     try:
-        return _get_client(config).list_tasks(project)
+        flat = _get_client(config).list_tasks(project)
+        return _build_tree(flat)
     except requests.HTTPError as e:
         if _is_auth_error(e):
             _clear_client()
