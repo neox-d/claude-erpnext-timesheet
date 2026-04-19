@@ -78,9 +78,9 @@ Grouping rules:
 
 Call `listTasks` with `project=STATUS.project` silently. Store as `TASKS`.
 
-**Identify overdue tasks:** entries in `TASKS` where `exp_end_date` is non-empty, `exp_end_date < TARGET_DATE`, and `status` is not `"Completed"` or `"Cancelled"`.
+**Identify overdue tasks:** walk `TASKS` recursively; collect nodes where `exp_end_date` is non-empty and `exp_end_date < TARGET_DATE`. (Completed and Cancelled tasks are excluded at fetch time.)
 
-**Auto-match:** for each entry, find the closest task in `TASKS` by keyword overlap. Assign if a good match exists; leave unassigned otherwise.
+**Auto-match:** for each entry, find the closest task in `TASKS` by keyword overlap. Walk `TASKS` recursively — groups and leaves are both valid match targets. Assign if a good match exists; leave unassigned otherwise.
 
 Store synthesized entries as `ENTRIES`.
 
@@ -105,7 +105,7 @@ Submit, or let me know what to change.
 - Edit description → update entry, show draft
 - Delete entry → remove, recalculate hours, show draft
 - Add entry → append, show draft
-- Assign by name or topic → look up in `TASKS`, assign, show draft
+- Assign by name or topic → look up in `TASKS` recursively (search all nodes), assign, show draft
 - Create new task → ask for subject (pre-fill from entry), call `createTask`, assign returned name, show draft
 - Redistribute hours → recalculate evenly, show draft
 - "Submit" / "Looks good" / "Go ahead" → Step 4
