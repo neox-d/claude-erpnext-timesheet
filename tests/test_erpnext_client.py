@@ -304,3 +304,15 @@ def test_list_tasks_stops_after_single_short_page():
         result = client.list_tasks("PROJ-001")
     assert len(result) == 1
     assert mock_req.call_count == 1
+
+
+def test_list_tasks_stops_on_empty_page():
+    """Exact multiple of page_size: full page + empty page → loop terminates cleanly."""
+    client = make_client()
+    client._authenticated = True
+    page1 = {"data": [{"name": f"T-{i}"} for i in range(100)]}
+    page2 = {"data": []}
+    with patch.object(client, "_request", side_effect=[page1, page2]) as mock_req:
+        result = client.list_tasks("PROJ-001")
+    assert len(result) == 100
+    assert mock_req.call_count == 2
