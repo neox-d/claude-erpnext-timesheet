@@ -129,6 +129,18 @@ class ERPNextClient:
         return result["data"]["name"], notes
 
 
+def _build_tree(tasks: list[dict]) -> list[dict]:
+    by_name = {t["name"]: dict(t, children=[]) for t in tasks}
+    roots = []
+    for node in by_name.values():
+        parent = node.get("parent_task")
+        if parent and parent in by_name:
+            by_name[parent]["children"].append(node)
+        else:
+            roots.append(node)
+    return roots
+
+
 # ---------------------------------------------------------------------------
 # Client cache — one login per MCP server session
 # ---------------------------------------------------------------------------

@@ -201,3 +201,65 @@ def test_build_timesheet_doc_without_date_str_uses_today():
     today_str = date_cls.today().strftime("%Y-%m-%d")
     assert doc["start_date"] == today_str
     assert doc["end_date"] == today_str
+
+
+# --- _build_tree ---
+
+from mcp_server import _build_tree
+
+
+def test_build_tree_empty():
+    assert _build_tree([]) == []
+
+
+def test_build_tree_flat_list_no_parents():
+    tasks = [
+        {"name": "T-1", "subject": "Alpha", "is_group": 0, "status": "Open",
+         "exp_end_date": "", "parent_task": None},
+        {"name": "T-2", "subject": "Beta", "is_group": 0, "status": "Open",
+         "exp_end_date": "", "parent_task": None},
+    ]
+    result = _build_tree(tasks)
+    assert len(result) == 2
+    assert result[0]["children"] == []
+    assert result[1]["children"] == []
+
+
+def test_build_tree_one_level_nesting():
+    tasks = [
+        {"name": "T-1", "subject": "Group", "is_group": 1, "status": "Open",
+         "exp_end_date": "", "parent_task": None},
+        {"name": "T-2", "subject": "Child", "is_group": 0, "status": "Open",
+         "exp_end_date": "", "parent_task": "T-1"},
+    ]
+    result = _build_tree(tasks)
+    assert len(result) == 1
+    assert result[0]["name"] == "T-1"
+    assert len(result[0]["children"]) == 1
+    assert result[0]["children"][0]["name"] == "T-2"
+
+
+def test_build_tree_two_level_nesting():
+    tasks = [
+        {"name": "T-1", "subject": "Top Group", "is_group": 1, "status": "Open",
+         "exp_end_date": "", "parent_task": None},
+        {"name": "T-2", "subject": "Sub Group", "is_group": 1, "status": "Open",
+         "exp_end_date": "", "parent_task": "T-1"},
+        {"name": "T-3", "subject": "Leaf", "is_group": 0, "status": "Open",
+         "exp_end_date": "", "parent_task": "T-2"},
+    ]
+    result = _build_tree(tasks)
+    assert len(result) == 1
+    assert result[0]["children"][0]["name"] == "T-2"
+    assert result[0]["children"][0]["children"][0]["name"] == "T-3"
+
+
+def test_build_tree_orphan_parent_treated_as_root():
+    """Task whose parent_task is not in the fetched set (e.g. Completed) → root."""
+    tasks = [
+        {"name": "T-2", "subject": "Orphan", "is_group": 0, "status": "Open",
+         "exp_end_date": "", "parent_task": "T-MISSING"},
+    ]
+    result = _build_tree(tasks)
+    assert len(result) == 1
+    assert result[0]["name"] == "T-2"
