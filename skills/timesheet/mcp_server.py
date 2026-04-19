@@ -520,7 +520,7 @@ def submitTimesheet(date: str, entries: list) -> dict:
 
 @mcp.tool()
 def listTasks(project: str) -> list:
-    """Return active (non-completed, non-cancelled) tasks for the given project."""
+    """Return active tasks for the given project as a nested tree (groups contain children)."""
     config = _load_config()
     try:
         flat = _get_client(config).list_tasks(project)
