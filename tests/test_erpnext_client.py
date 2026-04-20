@@ -335,6 +335,12 @@ def test_create_task_with_parent_task():
         })
     doc = mock_req.call_args[1]["json"]
     assert doc["parent_task"] == "TASK-GROUP-001"
+    assert doc["status"] == "Completed"
+    assert doc["expected_time"] == 2.0
+    assert "exp_start_date" in doc
+    assert "exp_end_date" in doc
+    assert "custom_planned_completion_date" in doc
+    assert "is_group" not in doc
     assert name == "TASK-0001"
     assert notes == []
 
