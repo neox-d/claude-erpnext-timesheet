@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_server import checkExisting, submitTimesheet, listTasks, createTask
+from mcp_server import checkExisting, submitTimesheet, listTasks, createTask, listProjects
 import mcp_server
 
 
@@ -142,3 +142,27 @@ def test_createTask_passes_is_group(tmp_path, monkeypatch):
     createTask("Group Name", "Desc", "PROJ-001", 0.0, "2026-04-20",
                 is_group=True)
     assert received[0]["is_group"] is True
+
+
+# --- listProjects ---
+
+def test_listProjects_returns_project_list(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
+    projects = [
+        {"id": "PROJ-0001", "label": "PROJ-0001 — My Project"},
+        {"id": "PROJ-0050", "label": "PROJ-0050"},
+    ]
+    monkeypatch.setattr(mcp_server.ERPNextClient, "list_projects",
+                        lambda self: projects)
+    assert listProjects() == projects
+
+
+def test_listProjects_empty(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "list_projects",
+                        lambda self: [])
+    assert listProjects() == []

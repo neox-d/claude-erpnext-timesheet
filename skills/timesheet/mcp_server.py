@@ -569,6 +569,19 @@ def listTasks(project: str) -> list:
 
 
 @mcp.tool()
+def listProjects() -> list:
+    """Return all non-Completed/non-Cancelled projects as [{id, label}]."""
+    config = _load_config()
+    try:
+        return _get_client(config).list_projects()
+    except requests.HTTPError as e:
+        if _is_auth_error(e):
+            _clear_client()
+            return [_AUTH_ERROR]
+        raise
+
+
+@mcp.tool()
 def createTask(subject: str, description: str, project: str, hours: float, date: str,
                parent_task: str = None, is_group: bool = False) -> dict:
     """Create a task in ERPNext. Auto-extends project end date on InvalidDates errors."""
