@@ -110,3 +110,35 @@ def test_createTask_notes_on_project_extension(tmp_path, monkeypatch):
     result = createTask("Fix bug", "Desc", "PROJ-001", 4.0, "2026-03-27")
     assert result["name"] == "TASK-003"
     assert "extended" in result["notes"][0]
+
+
+def test_createTask_passes_parent_task(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
+
+    received = []
+    def fake_create_task(self, inp):
+        received.append(inp)
+        return ("TASK-001", [])
+    monkeypatch.setattr(mcp_server.ERPNextClient, "create_task", fake_create_task)
+
+    createTask("Subject", "Desc", "PROJ-001", 2.0, "2026-04-20",
+                parent_task="T-GROUP-001")
+    assert received[0]["parent_task"] == "T-GROUP-001"
+
+
+def test_createTask_passes_is_group(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    make_config_file(tmp_path)
+    monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
+
+    received = []
+    def fake_create_task(self, inp):
+        received.append(inp)
+        return ("TASK-GRP-001", [])
+    monkeypatch.setattr(mcp_server.ERPNextClient, "create_task", fake_create_task)
+
+    createTask("Group Name", "Desc", "PROJ-001", 0.0, "2026-04-20",
+                is_group=True)
+    assert received[0]["is_group"] is True

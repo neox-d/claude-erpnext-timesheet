@@ -539,7 +539,8 @@ def listTasks(project: str) -> list:
 
 
 @mcp.tool()
-def createTask(subject: str, description: str, project: str, hours: float, date: str) -> dict:
+def createTask(subject: str, description: str, project: str, hours: float, date: str,
+               parent_task: str = None, is_group: bool = False) -> dict:
     """Create a task in ERPNext. Auto-extends project end date on InvalidDates errors."""
     config = _load_config()
     try:
@@ -549,6 +550,8 @@ def createTask(subject: str, description: str, project: str, hours: float, date:
             "project": project,
             "hours": hours,
             "date": date,
+            "parent_task": parent_task,
+            "is_group": is_group,
         })
         return {"name": name, "notes": notes}
     except requests.HTTPError as e:
