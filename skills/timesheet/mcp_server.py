@@ -108,6 +108,36 @@ class ERPNextClient:
             start += page_size
         return tasks
 
+    def list_projects(self) -> list:
+        projects = []
+        page_size = 100
+        start = 0
+        while True:
+            result = self._request(
+                "GET",
+                "/api/resource/Project",
+                params={
+                    "filters": json.dumps([
+                        ["status", "not in", ["Completed", "Cancelled"]],
+                    ]),
+                    "fields": json.dumps(["name", "project_name"]),
+                    "limit_page_length": page_size,
+                    "limit_start": start,
+                },
+            )
+            page = result.get("data", [])
+            for p in page:
+                label = (
+                    f"{p['name']} — {p['project_name']}"
+                    if p.get("project_name") and p["project_name"] != p["name"]
+                    else p["name"]
+                )
+                projects.append({"id": p["name"], "label": label})
+            if len(page) < page_size:
+                break
+            start += page_size
+        return projects
+
     def extend_project(self, project: str, new_date: str) -> None:
         self._request(
             "PUT",

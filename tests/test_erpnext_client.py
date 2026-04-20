@@ -385,3 +385,41 @@ def test_create_task_leaf_omits_is_group_field():
     assert "is_group" not in doc
     assert doc["status"] == "Completed"
     assert doc["expected_time"] == 2.0
+
+
+# --- list_projects ---
+
+def test_list_projects_returns_label():
+    client = make_client()
+    client._authenticated = True
+    page = {"data": [
+        {"name": "PROJ-0001", "project_name": "My Project"},
+        {"name": "PROJ-0050", "project_name": "PROJ-0050"},
+    ]}
+    with patch.object(client, "_request", side_effect=[page]) as mock_req:
+        result = client.list_projects()
+    assert result == [
+        {"id": "PROJ-0001", "label": "PROJ-0001 — My Project"},
+        {"id": "PROJ-0050", "label": "PROJ-0050"},
+    ]
+
+
+def test_list_projects_filter_excludes_completed_cancelled():
+    client = make_client()
+    client._authenticated = True
+    with patch.object(client, "_request", return_value={"data": []}) as mock_req:
+        client.list_projects()
+    params = mock_req.call_args[1]["params"]
+    filters = json.loads(params["filters"])
+    assert ["status", "not in", ["Completed", "Cancelled"]] in filters
+
+
+def test_list_projects_paginates():
+    client = make_client()
+    client._authenticated = True
+    page1 = {"data": [{"name": f"PROJ-{i:04d}", "project_name": f"Project {i}"}
+                       for i in range(100)]}
+    page2 = {"data": [{"name": "PROJ-0100", "project_name": "Last"}]}
+    with patch.object(client, "_request", side_effect=[page1, page2]):
+        result = client.list_projects()
+    assert len(result) == 101
