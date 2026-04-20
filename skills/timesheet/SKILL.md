@@ -90,7 +90,7 @@ Call `listTasks` with `project=STATUS.project` silently. Store as `TASKS`.
    - No good group match → propose a new group subject → set `proposed_group`
 3. Entries where no group is semantically appropriate → leave `parent_task` and `proposed_group` unset (root level).
 
-Store `parent_task` and `proposed_group` on each entry alongside `task` in `ENTRIES`. At most one of `task`, `parent_task`, `proposed_group` is set per entry.
+Apply rules 1–3 in order. After all three rules are evaluated, store the final state on each entry in `ENTRIES`. The postcondition is: at most one of `task`, `parent_task`, `proposed_group` is set per entry.
 
 Store synthesized entries as `ENTRIES`.
 
@@ -138,9 +138,9 @@ Call `checkExisting` with `date=TARGET_DATE` silently.
 
 If `exists` is `true`: "A timesheet already exists for TARGET_DATE — submit anyway?" If no, return to Step 3.
 
-**Auto-create tasks for unassigned entries** in this order:
+**Auto-create tasks for unassigned entries** in this order. Only process entries where `task` is not yet assigned — entries with `task` already set skip directly to step 4 (assign names).
 
-1. **New groups first** — for entries with `proposed_group` set: call `createTask` with `subject=proposed_group`, `description=proposed_group`, `project=STATUS.project`, `hours=0`, `date=TARGET_DATE`, `is_group=True`. Collect returned names.
+1. **New groups first** — for entries with `proposed_group` set: call `createTask` with `subject=proposed_group`, `description=proposed_group`, `project=STATUS.project`, `hours=0`, `date=TARGET_DATE`, `is_group=True`. Collect returned names. For each such entry, update its `parent_task` to the returned name (the actual ERPNext task ID) before proceeding to step 2.
 2. **Child tasks** — for entries with `parent_task` set (either an existing group name or a name returned in step 1): call `createTask` with `parent_task` set, `is_group=False`.
 3. **Root tasks** — for entries with neither `parent_task` nor `proposed_group` set: call `createTask` with no parent, `is_group=False`.
 4. Assign all returned task names to their entries before calling `submitTimesheet`.
