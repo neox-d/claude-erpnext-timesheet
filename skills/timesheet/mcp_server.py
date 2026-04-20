@@ -260,7 +260,7 @@ def build_timesheet_doc(config: dict, entries: list, date_str: str = None) -> di
             "hours": hours,
             "from_time": from_time,
             "to_time": current.strftime("%Y-%m-%d %H:%M:%S"),
-            "project": config["project"],
+            "project": entry.get("project", config["project"]),
         }
         if entry.get("task"):
             log["task"] = entry["task"]

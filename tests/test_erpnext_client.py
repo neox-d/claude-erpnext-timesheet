@@ -423,3 +423,16 @@ def test_list_projects_paginates():
     with patch.object(client, "_request", side_effect=[page1, page2]):
         result = client.list_projects()
     assert len(result) == 101
+
+
+# --- build_timesheet_doc (per-entry project) ---
+
+def test_build_timesheet_doc_per_entry_project_override():
+    """Entry-level project overrides config project in the time log."""
+    entries = [
+        {"description": "Task A", "hours": 2.0, "project": "PROJ-0050"},
+        {"description": "Task B", "hours": 2.0},
+    ]
+    doc = build_timesheet_doc(BASE_CONFIG, entries)
+    assert doc["time_logs"][0]["project"] == "PROJ-0050"
+    assert doc["time_logs"][1]["project"] == "PROJ-001"   # falls back to config
