@@ -1,7 +1,7 @@
 ---
 name: timesheet
 description: Use when the user wants to submit today's ERPNext timesheet, log work hours, fill in a timesheet from conversation history, or make a backdated timesheet entry for a previous date. Uses MCP tools to interact with ERPNext.
-version: 2.0.7
+version: 2.0.8
 ---
 
 # ERPNext Timesheet
@@ -82,6 +82,16 @@ Call `listTasks` with `project=STATUS.project` silently. Store as `TASKS`.
 
 **Auto-match:** for each entry, find the closest task in `TASKS` by keyword overlap. Walk `TASKS` recursively — groups and leaves are both valid match targets. Assign if a good match exists; leave unassigned otherwise.
 
+**Group placement:** For each entry, determine where a new task will be placed if one must be created:
+
+1. If `task` points to a group (`is_group=1`) and keyword overlap with that group is vague (the group was the closest available but not a clear match) → demote: clear `task`, set `parent_task` to that group's name.
+2. For entries with no `task` → walk `TASKS` recursively to find the best-fit group by keyword overlap:
+   - Clear group match → set `parent_task` to that group's name
+   - No good group match → propose a new group subject → set `proposed_group`
+3. Entries where no group is semantically appropriate → leave `parent_task` and `proposed_group` unset (root level).
+
+Store `parent_task` and `proposed_group` on each entry alongside `task` in `ENTRIES`. At most one of `task`, `parent_task`, `proposed_group` is set per entry.
+
 Store synthesized entries as `ENTRIES`.
 
 ## Step 3: Draft Review
@@ -95,10 +105,14 @@ Display the draft:
 TARGET_DATE — Xh total
 ─────────────────────────────────────────
 1. [Xh] Description one          → TASK-XXXX
-2. [Xh] Description two          → no task
+2. [Xh] Description two          → [GROUP-XXXX] / new task
+3. [Xh] Description three        → [new "Backend"] / new task
+4. [Xh] Description four         → new task
 ─────────────────────────────────────────
 Submit, or let me know what to change.
 ```
+
+Legend: `→ TASK-XXXX` = direct assign; `→ [GROUP] / new task` = child of existing group; `→ [new "Name"] / new task` = child of proposed new group; `→ new task` = root level.
 
 **Handle edits conversationally.** `TASKS` is already in context — no extra MCP call unless the user asks to create a new task.
 
@@ -109,6 +123,10 @@ Submit, or let me know what to change.
 - Create new task → ask for subject (pre-fill from entry), call `createTask`, assign returned name, show draft
 - Redistribute hours → recalculate evenly, show draft
 - "Submit" / "Looks good" / "Go ahead" → Step 4
+- Move to existing group → `"put entry N under Group X"` → set `parent_task` to matched group name, clear `proposed_group`, show draft
+- Propose new group → `"create group Z for entry N"` → set `proposed_group` to Z, clear `parent_task`, show draft
+- Remove group placement → `"move entry N to root"` → clear both `parent_task` and `proposed_group`, show draft
+- Rename proposed group → `"rename the new group to X"` → update `proposed_group` subject, show draft
 
 **Hours mismatch:** if total ≠ `STATUS.work_hours` at approval, note it: "Total is Xh, default is Yh — proceed?" and wait.
 
@@ -120,7 +138,14 @@ Call `checkExisting` with `date=TARGET_DATE` silently.
 
 If `exists` is `true`: "A timesheet already exists for TARGET_DATE — submit anyway?" If no, return to Step 3.
 
-**Auto-create tasks for unassigned entries:** for each unassigned entry, call `createTask` with `subject` = description (max 140 chars), `description` = description, `project` = STATUS.project, `hours` = entry hours, `date` = TARGET_DATE. Assign the returned `name`. After all are created, show a brief list: `TASK-XXXX — subject` for each. Print any `notes`.
+**Auto-create tasks for unassigned entries** in this order:
+
+1. **New groups first** — for entries with `proposed_group` set: call `createTask` with `subject=proposed_group`, `description=proposed_group`, `project=STATUS.project`, `hours=0`, `date=TARGET_DATE`, `is_group=True`. Collect returned names.
+2. **Child tasks** — for entries with `parent_task` set (either an existing group name or a name returned in step 1): call `createTask` with `parent_task` set, `is_group=False`.
+3. **Root tasks** — for entries with neither `parent_task` nor `proposed_group` set: call `createTask` with no parent, `is_group=False`.
+4. Assign all returned task names to their entries before calling `submitTimesheet`.
+
+After all are created, show a brief list: `TASK-XXXX — subject` for each. Print any `notes`.
 
 Call `submitTimesheet` with `date=TARGET_DATE` and `entries=ENTRIES`. Each entry must include `description`, `hours`, `activity_type`; include `task` only if assigned.
 
