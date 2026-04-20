@@ -117,16 +117,22 @@ class ERPNextClient:
 
     def create_task(self, task_input: dict) -> tuple[str, list[str]]:
         notes = []
+        is_group = task_input.get("is_group", False)
         doc = {
             "subject": task_input["subject"],
             "description": task_input["description"],
             "project": task_input["project"],
-            "expected_time": task_input["hours"],
-            "exp_start_date": task_input["date"],
-            "exp_end_date": task_input["date"],
-            "custom_planned_completion_date": task_input["date"],
-            "status": "Completed",
         }
+        if task_input.get("parent_task"):
+            doc["parent_task"] = task_input["parent_task"]
+        if is_group:
+            doc["is_group"] = 1
+        else:
+            doc["expected_time"] = task_input["hours"]
+            doc["exp_start_date"] = task_input["date"]
+            doc["exp_end_date"] = task_input["date"]
+            doc["custom_planned_completion_date"] = task_input["date"]
+            doc["status"] = "Completed"
         try:
             result = self._request("POST", "/api/resource/Task", json=doc)
         except requests.HTTPError as e:

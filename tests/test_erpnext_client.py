@@ -316,3 +316,65 @@ def test_list_tasks_stops_on_empty_page():
         result = client.list_tasks("PROJ-001")
     assert len(result) == 100
     assert mock_req.call_count == 2
+
+
+# --- create_task (parent_task / is_group) ---
+
+def test_create_task_with_parent_task():
+    client = make_client()
+    client._authenticated = True
+    with patch.object(client, "_request",
+                      return_value={"data": {"name": "TASK-0001"}}) as mock_req:
+        name, notes = client.create_task({
+            "subject": "Child task",
+            "description": "desc",
+            "project": "PROJ-001",
+            "hours": 2.0,
+            "date": "2026-04-20",
+            "parent_task": "TASK-GROUP-001",
+        })
+    doc = mock_req.call_args[1]["json"]
+    assert doc["parent_task"] == "TASK-GROUP-001"
+    assert name == "TASK-0001"
+    assert notes == []
+
+
+def test_create_task_is_group_true():
+    client = make_client()
+    client._authenticated = True
+    with patch.object(client, "_request",
+                      return_value={"data": {"name": "TASK-GRP-001"}}) as mock_req:
+        name, notes = client.create_task({
+            "subject": "My Group",
+            "description": "group desc",
+            "project": "PROJ-001",
+            "hours": 0,
+            "date": "2026-04-20",
+            "is_group": True,
+        })
+    doc = mock_req.call_args[1]["json"]
+    assert doc["is_group"] == 1
+    assert "status" not in doc
+    assert "expected_time" not in doc
+    assert "exp_start_date" not in doc
+    assert "exp_end_date" not in doc
+    assert name == "TASK-GRP-001"
+    assert notes == []
+
+
+def test_create_task_leaf_omits_is_group_field():
+    client = make_client()
+    client._authenticated = True
+    with patch.object(client, "_request",
+                      return_value={"data": {"name": "TASK-0002"}}) as mock_req:
+        client.create_task({
+            "subject": "Leaf task",
+            "description": "desc",
+            "project": "PROJ-001",
+            "hours": 2.0,
+            "date": "2026-04-20",
+        })
+    doc = mock_req.call_args[1]["json"]
+    assert "is_group" not in doc
+    assert doc["status"] == "Completed"
+    assert doc["expected_time"] == 2.0
