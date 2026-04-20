@@ -358,6 +358,7 @@ def test_create_task_is_group_true():
     assert "expected_time" not in doc
     assert "exp_start_date" not in doc
     assert "exp_end_date" not in doc
+    assert "custom_planned_completion_date" not in doc
     assert name == "TASK-GRP-001"
     assert notes == []
 
