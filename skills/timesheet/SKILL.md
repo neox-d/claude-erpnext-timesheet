@@ -1,7 +1,7 @@
 ---
 name: timesheet
 description: Use when the user wants to submit today's ERPNext timesheet, log work hours, fill in a timesheet from conversation history, or make a backdated timesheet entry for a previous date. Uses MCP tools to interact with ERPNext.
-version: 2.0.8
+version: 2.0.9
 ---
 
 # ERPNext Timesheet
@@ -76,7 +76,13 @@ Grouping rules:
 - Focus on deliverables: what was built, fixed, reviewed, or designed
 - 1–8 entries
 
-Call `listTasks` with `project=STATUS.project` silently. Store as `TASKS`.
+Call `listProjects` silently. Store as `PROJECTS`.
+
+For each entry, infer the ERPNext project from conversation context — topics discussed, system names, repositories or products mentioned, domain keywords. Match against `PROJECTS` by `label`/`id` similarity. Set `entry.project` for each entry. When uncertain, default to `STATUS.project`.
+
+Collect the distinct set of projects across all entries. Call `listTasks(project)` once for each unique project. Store results as a map: `project_id → task tree`. (If all entries resolve to `STATUS.project`, this is one call — identical to the previous behaviour.)
+
+Auto-match each entry against its own project's task tree using the existing recursive matching logic (Feature 1 + Feature 2 group placement).
 
 **Identify overdue tasks:** walk `TASKS` recursively; collect nodes where `exp_end_date` is non-empty and `exp_end_date < TARGET_DATE`. (Completed and Cancelled tasks are excluded at fetch time.)
 
@@ -101,13 +107,25 @@ If overdue tasks exist, list them before the draft:
 
 Display the draft:
 
+**If all entries share one project** (single-project day), omit the project prefix — no visual noise:
+
 ```
 TARGET_DATE — Xh total
 ─────────────────────────────────────────
 1. [Xh] Description one          → TASK-XXXX
 2. [Xh] Description two          → [GROUP-XXXX] / new task
-3. [Xh] Description three        → [new "Backend"] / new task
-4. [Xh] Description four         → new task
+─────────────────────────────────────────
+Submit, or let me know what to change.
+```
+
+**If entries span multiple projects**, show project prefix before each task assignment:
+
+```
+TARGET_DATE — Xh total
+─────────────────────────────────────────
+1. [2h] Implement task tree builder    → PROJ-0001 / TASK-XXXX
+2. [2h] Write pagination tests         → PROJ-0001 / [Dev Start] / new task
+3. [2h] Review vendor proposal         → PROJ-0050 / no task
 ─────────────────────────────────────────
 Submit, or let me know what to change.
 ```
@@ -127,6 +145,7 @@ Legend: `→ TASK-XXXX` = direct assign; `→ [GROUP] / new task` = child of exi
 - Propose new group → `"create group Z for entry N"` → set `proposed_group` to Z, clear `parent_task`, show draft
 - Remove group placement → `"move entry N to root"` → clear both `parent_task` and `proposed_group`, show draft
 - Rename proposed group → `"rename the new group to X"` → update `proposed_group` subject, show draft
+- Reassign project → `"move entry N to PROJ-XXXX"` → update `entry.project`, re-run auto-match against that project's task tree (call `listTasks` lazily if not already fetched), show draft
 
 **Hours mismatch:** if total ≠ `STATUS.work_hours` at approval, note it: "Total is Xh, default is Yh — proceed?" and wait.
 
@@ -140,7 +159,7 @@ If `exists` is `true`: "A timesheet already exists for TARGET_DATE — submit an
 
 **Auto-create tasks for unassigned entries** in this order. Only process entries where `task` is not yet assigned — entries with `task` already set skip directly to step 4 (assign names).
 
-1. **New groups first** — for entries with `proposed_group` set: call `createTask` with `subject=proposed_group`, `description=proposed_group`, `project=STATUS.project`, `hours=0`, `date=TARGET_DATE`, `is_group=True`. Collect returned names. For each such entry, update its `parent_task` to the returned name (the actual ERPNext task ID) before proceeding to step 2.
+1. **New groups first** — for entries with `proposed_group` set: call `createTask` with `subject=proposed_group`, `description=proposed_group`, `project=entry.project`, `hours=0`, `date=TARGET_DATE`, `is_group=True`. Collect returned names. For each such entry, update its `parent_task` to the returned name (the actual ERPNext task ID) before proceeding to step 2.
 2. **Child tasks** — for entries with `parent_task` set (either an existing group name or a name returned in step 1): call `createTask` with `parent_task` set, `is_group=False`.
 3. **Root tasks** — for entries with neither `parent_task` nor `proposed_group` set: call `createTask` with no parent, `is_group=False`.
 4. Assign all returned task names to their entries before calling `submitTimesheet`.
