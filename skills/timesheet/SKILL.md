@@ -160,8 +160,8 @@ If `exists` is `true`: "A timesheet already exists for TARGET_DATE — submit an
 **Auto-create tasks for unassigned entries** in this order. Only process entries where `task` is not yet assigned — entries with `task` already set skip directly to step 4 (assign names).
 
 1. **New groups first** — for entries with `proposed_group` set: call `createTask` with `subject=proposed_group`, `description=proposed_group`, `project=entry.project`, `hours=0`, `date=TARGET_DATE`, `is_group=True`. Collect returned names. For each such entry, update its `parent_task` to the returned name (the actual ERPNext task ID) before proceeding to step 2.
-2. **Child tasks** — for entries with `parent_task` set (either an existing group name or a name returned in step 1): call `createTask` with `parent_task` set, `is_group=False`.
-3. **Root tasks** — for entries with neither `parent_task` nor `proposed_group` set: call `createTask` with no parent, `is_group=False`.
+2. **Child tasks** — for entries with `parent_task` set (either an existing group name or a name returned in step 1): call `createTask` with `parent_task` set, `project=entry.project`, `is_group=False`.
+3. **Root tasks** — for entries with neither `parent_task` nor `proposed_group` set: call `createTask` with no parent, `project=entry.project`, `is_group=False`.
 4. Assign all returned task names to their entries before calling `submitTimesheet`.
 
 After all are created, show a brief list: `TASK-XXXX — subject` for each. Print any `notes`.
