@@ -484,38 +484,22 @@ def write_config(config: dict, path: str) -> None:
 # MCP tools
 # ---------------------------------------------------------------------------
 
-def _pop_install_log() -> str | None:
-    log_path = Path.home() / ".claude" / "timesheet-install.log"
-    if log_path.exists():
-        text = log_path.read_text().strip()
-        log_path.unlink()
-        return text or None
-    return None
-
-
 @mcp.tool()
 def isReady() -> dict:
     """Return the current configuration status of the timesheet plugin."""
     config_path = Path.home() / ".claude" / "timesheet.json"
-    install_log = _pop_install_log()
 
     if not config_path.exists():
-        result = {"configured": False, "setup_command": "timesheet-setup"}
-        if install_log:
-            result["install_log"] = install_log
-        return result
+        return {"configured": False, "setup_command": "timesheet-setup"}
 
     config = json.loads(config_path.read_text())
     if not config.get("project") or not config.get("default_activity"):
-        result = {
+        return {
             "configured": False,
             "needs_defaults": True,
             "_projects": config.get("_projects", []),
             "_activity_types": config.get("_activity_types", []),
         }
-        if install_log:
-            result["install_log"] = install_log
-        return result
 
     return {
         "configured": True,
