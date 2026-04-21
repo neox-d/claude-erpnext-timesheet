@@ -22,6 +22,8 @@ Call `isReady` silently. Store the full response as `STATUS`.
 
 **If `configured` is `false` and `needs_defaults` is not set:**
 
+If the SessionStart hook reported installation activity (venv creation, package installation, CLI ready), surface those messages to the user verbatim before continuing.
+
 Tell the user:
 
 > Open a new terminal and run:
