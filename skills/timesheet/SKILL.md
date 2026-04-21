@@ -22,7 +22,7 @@ Call `isReady` silently. Store the full response as `STATUS`.
 
 **If `configured` is `false` and `needs_defaults` is not set:**
 
-If the SessionStart hook reported installation activity (venv creation, package installation, CLI ready), surface those messages to the user verbatim before continuing.
+If the SessionStart hook reported installation activity, surface each message to the user as a bullet list before continuing — exactly as reported, including package names, install paths, and any PATH instructions.
 
 Tell the user:
 

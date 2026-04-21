@@ -26,9 +26,9 @@ errors=()
 if [ ! -d "$VENV_DIR" ]; then
     echo "Setting up timesheet environment..." >&2
     if ! python3 -m venv "$VENV_DIR" 2>/dev/null; then
-        errors+=("Failed to create Python virtual environment. Make sure python3-venv is installed (e.g. sudo apt install python3-venv on Debian/Ubuntu).")
+        errors+=("Failed to create Python virtual environment at $VENV_DIR. Make sure python3-venv is installed (e.g. sudo apt install python3-venv on Debian/Ubuntu).")
     else
-        messages+=("Created timesheet Python environment.")
+        messages+=("Created Python environment at $VENV_DIR")
     fi
 fi
 
@@ -37,12 +37,12 @@ if [ ${#errors[@]} -eq 0 ] && ! "$VENV_PYTHON" -c "import mcp, requests, cryptog
     echo "Installing timesheet packages..." >&2
     if "$VENV_DIR/bin/pip" install --quiet requests cryptography "mcp[cli]" 2>/dev/null; then
         if "$VENV_PYTHON" -c "import mcp, requests, cryptography" >/dev/null 2>&1; then
-            messages+=("Installed timesheet packages (requests, cryptography, mcp).")
+            messages+=("Installed packages: requests, cryptography, mcp[cli]")
         else
-            errors+=("Package installation appeared to succeed but packages are still missing. Try running: $VENV_DIR/bin/pip install requests cryptography 'mcp[cli]'")
+            errors+=("Packages still missing after install. Run manually: $VENV_DIR/bin/pip install requests cryptography 'mcp[cli]'")
         fi
     else
-        errors+=("Failed to install required packages. Check your internet connection, then run: $VENV_DIR/bin/pip install requests cryptography 'mcp[cli]'")
+        errors+=("Failed to install packages. Check your internet connection, then run: $VENV_DIR/bin/pip install requests cryptography 'mcp[cli]'")
     fi
 fi
 
@@ -52,29 +52,31 @@ if [ ${#errors[@]} -eq 0 ]; then
     printf '#!/usr/bin/env bash\nexec "%s" "%s" "$@"\n' "$VENV_PYTHON" "$SETUP_SCRIPT" > "$BIN_DIR/timesheet-setup"
     chmod +x "$BIN_DIR/timesheet-setup"
     echo "$PLUGIN_VERSION" > "$STAMP_FILE"
-    messages+=("timesheet-setup command is ready.")
+    messages+=("Installed timesheet-setup to $BIN_DIR/timesheet-setup")
 fi
 
 # Collect context to surface to Claude
-context_parts=()
+lines=()
 
 if [ ${#errors[@]} -gt 0 ]; then
     for err in "${errors[@]}"; do
-        context_parts+=("ERROR: $err")
+        lines+=("Error: $err")
+    done
+fi
+
+if [ ${#messages[@]} -gt 0 ]; then
+    for msg in "${messages[@]}"; do
+        lines+=("$msg")
     done
 fi
 
 if [[ ":${PATH}:" != *":${BIN_DIR}:"* ]]; then
-    context_parts+=("WARNING: ~/.local/bin is not on the user's PATH. The timesheet-setup command has been installed there but the user won't be able to run it. If the timesheet skill needs to guide setup, also tell them to run: echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc (or ~/.zshrc if using zsh). They only need to do this once.")
+    lines+=("Note: $BIN_DIR is not on your PATH. To fix, run:")
+    lines+=("  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc")
+    lines+=("(Use ~/.zshrc instead if you are on zsh. Only needed once.)")
 fi
 
-if [ ${#messages[@]} -gt 0 ]; then
-    combined="${messages[*]}"
-    context_parts+=("INFO: ${combined}")
-fi
-
-if [ ${#context_parts[@]} -gt 0 ]; then
-    combined_context=$(printf '%s ' "${context_parts[@]}")
-    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' \
-        "$(echo "$combined_context" | sed 's/"/\\"/g')"
+if [ ${#lines[@]} -gt 0 ]; then
+    combined=$(printf '%s\n' "${lines[@]}" | sed 's/"/\\"/g' | tr '\n' '|')
+    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$combined"
 fi
