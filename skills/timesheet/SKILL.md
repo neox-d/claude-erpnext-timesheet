@@ -10,7 +10,7 @@ Automate daily ERPNext timesheet filling from your Claude conversation history.
 
 ---
 
-When this skill is invoked, follow these steps exactly. Do not skip steps.
+When this skill is invoked, follow these steps exactly. Do not skip steps. Do not narrate which step you are on — no "Starting Step N", no "checking X", no intermediate announcements. The only output before the draft is the installation messages block (if any) and the setup prompt or announce line.
 
 ## Step 0: Setup and Date Resolution
 
@@ -22,7 +22,7 @@ Call `isReady` silently. Store the full response as `STATUS`.
 
 **If `configured` is `false` and `needs_defaults` is not set:**
 
-If the SessionStart hook reported installation activity, surface each message to the user as a bullet list before continuing — exactly as reported, including package names, install paths, and any PATH instructions.
+If the SessionStart hook reported installation activity, output each line exactly as received — no rewording, no summarising. Render them in a code block, one line per entry.
 
 Tell the user:
 
