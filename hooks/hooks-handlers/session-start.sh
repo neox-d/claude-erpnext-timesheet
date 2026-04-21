@@ -77,6 +77,6 @@ if [[ ":${PATH}:" != *":${BIN_DIR}:"* ]]; then
 fi
 
 if [ ${#lines[@]} -gt 0 ]; then
-    combined=$(printf '%s\n' "${lines[@]}" | sed 's/"/\\"/g' | tr '\n' '|')
+    combined=$(printf '%s\n' "${lines[@]}" | sed 's/\\/\\\\/g; s/"/\\"/g' | awk '{printf "%s\\n", $0}')
     printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$combined"
 fi

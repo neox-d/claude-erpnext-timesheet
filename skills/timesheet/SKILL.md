@@ -22,7 +22,7 @@ Call `isReady` silently. Store the full response as `STATUS`.
 
 **If `configured` is `false` and `needs_defaults` is not set:**
 
-If the SessionStart hook reported installation activity, output each line exactly as received — no rewording, no summarising. Render them in a code block, one line per entry.
+If the SessionStart hook reported installation activity, render the message block exactly as received in a code block — no rewording, no summarising.
 
 Tell the user:
 
