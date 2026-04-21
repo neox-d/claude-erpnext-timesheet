@@ -21,28 +21,18 @@ fi
 
 messages=()
 errors=()
-fresh_venv=0
 
 # Create venv if missing
 if [ ! -d "$VENV_DIR" ]; then
     if ! python3 -m venv "$VENV_DIR" 2>/dev/null; then
         errors+=("Failed to create Python virtual environment at $VENV_DIR. Make sure python3-venv is installed (e.g. sudo apt install python3-venv on Debian/Ubuntu).")
-    else
-        fresh_venv=1
-        messages+=("Created Python environment at $VENV_DIR")
     fi
 fi
 
-# Install deps: always on a fresh venv; otherwise only if not in the venv's own site-packages
+# Install deps if not already in the venv's own site-packages
 venv_site="$VENV_DIR/lib/$(ls "$VENV_DIR/lib" 2>/dev/null | head -1)/site-packages"
-needs_install=0
-if [ "$fresh_venv" -eq 1 ]; then
-    needs_install=1
-elif [ ${#errors[@]} -eq 0 ] && { [ ! -d "$venv_site/requests" ] || [ ! -d "$venv_site/cryptography" ] || [ ! -d "$venv_site/mcp" ]; }; then
-    needs_install=1
-fi
-
-if [ ${#errors[@]} -eq 0 ] && [ "$needs_install" -eq 1 ]; then
+if [ ${#errors[@]} -eq 0 ] && { [ ! -d "$venv_site/requests" ] || [ ! -d "$venv_site/cryptography" ] || [ ! -d "$venv_site/mcp" ]; }; then
+    messages+=("Set up Python environment at $VENV_DIR")
     if "$VENV_DIR/bin/pip" install --quiet requests cryptography "mcp[cli]" 2>/dev/null; then
         if [ -d "$venv_site/requests" ] && [ -d "$venv_site/cryptography" ] && [ -d "$venv_site/mcp" ]; then
             messages+=("Installed packages: requests, cryptography, mcp[cli]")
