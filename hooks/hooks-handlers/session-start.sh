@@ -55,28 +55,18 @@ if [ ${#errors[@]} -eq 0 ]; then
     messages+=("Installed timesheet-setup to $BIN_DIR/timesheet-setup")
 fi
 
-# Collect context to surface to Claude
-lines=()
-
-if [ ${#errors[@]} -gt 0 ]; then
+# Write messages and errors to a log file for isReady to pick up next session
+LOG_FILE="$HOME/.claude/timesheet-install.log"
+{
     for err in "${errors[@]}"; do
-        lines+=("Error: $err")
+        printf 'Error: %s\n' "$err"
     done
-fi
-
-if [ ${#messages[@]} -gt 0 ]; then
     for msg in "${messages[@]}"; do
-        lines+=("$msg")
+        printf '%s\n' "$msg"
     done
-fi
-
-if [[ ":${PATH}:" != *":${BIN_DIR}:"* ]]; then
-    lines+=("Note: $BIN_DIR is not on your PATH. To fix, run:")
-    lines+=("  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc")
-    lines+=("(Use ~/.zshrc instead if you are on zsh. Only needed once.)")
-fi
-
-if [ ${#lines[@]} -gt 0 ]; then
-    combined=$(printf '%s\n' "${lines[@]}" | sed 's/\\/\\\\/g; s/"/\\"/g' | awk '{printf "%s\\n", $0}')
-    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$combined"
-fi
+    if [[ ":${PATH}:" != *":${BIN_DIR}:"* ]]; then
+        printf 'Note: %s is not on your PATH. To fix, run:\n' "$BIN_DIR"
+        printf "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc\n"
+        printf '(Use ~/.zshrc if on zsh. Only needed once.)\n'
+    fi
+} > "$LOG_FILE"
