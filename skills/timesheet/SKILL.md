@@ -1,7 +1,7 @@
 ---
 name: timesheet
 description: Use when the user wants to submit today's ERPNext timesheet, log work hours, fill in a timesheet from conversation history, or make a backdated timesheet entry for a previous date. Uses MCP tools to interact with ERPNext.
-version: 2.0.10
+version: 2.0.11
 ---
 
 # ERPNext Timesheet
@@ -20,37 +20,31 @@ When this skill is invoked, follow these steps exactly. Do not skip steps.
 
 Call `isReady` silently. Store the full response as `STATUS`.
 
-**If `configured` is `false` and `needs_defaults` is `true`:**
-
-Credentials are saved but defaults are missing. Use `AskUserQuestion` with two questions using `STATUS._projects` and `STATUS._activity_types`:
-- **Default Project**: up to 4 options from `_projects` (show `label`, value is `id`); mark current default as "(Selected)"
-- **Default Activity**: always offer these 4 options: Development, Development Testing, Debugging, Debug & Fix — plus the user can type Other for anything else
-
-Call `updateSettings` with the selected `project` and `activity_type`. Call `isReady` again and store as `STATUS`.
-
 **If `configured` is `false` and `needs_defaults` is not set:**
 
 Tell the user:
 
 > Open a new terminal and run:
 > ```
-> STATUS.setup_command
+> timesheet-setup
 > ```
-> Enter your credentials, then come back here.
+> Once done, re-run `/timesheet`.
 
-Wait for the user to return. Call `isReady` again. If still not configured, repeat.
+Stop here — do not wait, do not call `isReady` again.
 
-Once configured, use `AskUserQuestion` with two questions using `STATUS._projects` and `STATUS._activity_types`:
+**If `configured` is `false` and `needs_defaults` is `true`:**
+
+Credentials are saved but defaults are missing. Use `AskUserQuestion` with two questions using `STATUS._projects` and `STATUS._activity_types`:
 - **Default Project**: up to 4 options from `_projects` (show `label`, value is `id`); mark current default as "(Selected)"
 - **Default Activity**: always offer these 4 options: Development, Development Testing, Debugging, Debug & Fix — plus the user can type Other for anything else
 
-Call `updateSettings` with the selected `project` and `activity_type`.
-
-Announce: `Logging work for TARGET_DATE — <username> @ <url>`
+Call `updateSettings` with the selected `project` and `activity_type`. Store the return value as `STATUS` — it has the same shape as a configured `isReady` response. Do not call `isReady` again.
 
 **If `configured` is `true` and user mentioned reconfiguring:**
 
-Tell the user to run `STATUS.setup_command` in a new terminal, then come back. Call `isReady` again — it will return `needs_defaults: true` so the selector flow above will run automatically.
+Tell the user to run `timesheet-setup` in a new terminal, then re-run `/timesheet`. Stop here.
+
+Announce: `Logging work for TARGET_DATE — <username> on <url>`
 
 Otherwise proceed directly to Step 1.
 

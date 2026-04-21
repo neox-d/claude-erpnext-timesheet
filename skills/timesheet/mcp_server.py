@@ -627,7 +627,15 @@ def updateSettings(project: str = None, activity_type: str = None,
     config.pop("_activity_types", None)
 
     config_path.write_text(json.dumps(config, indent=2))
-    return {"updated": True}
+    return {
+        "configured": True,
+        "username": config.get("username"),
+        "url": config.get("url"),
+        "work_hours": config.get("work_hours", 8),
+        "project": config.get("project"),
+        "default_activity": config.get("default_activity"),
+        "setup_command": "timesheet-setup",
+    }
 
 
 if __name__ == "__main__":

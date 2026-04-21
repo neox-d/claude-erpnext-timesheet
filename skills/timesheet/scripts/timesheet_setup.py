@@ -7,7 +7,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import requests
+try:
+    import requests
+    import cryptography  # noqa: F401
+    import mcp  # noqa: F401
+except ImportError as e:
+    venv_pip = Path(__file__).parents[4] / ".claude" / "timesheet-venv" / "bin" / "pip"
+    print(f"Error: required package missing — {e}")
+    print(f"Run: {venv_pip} install requests cryptography 'mcp[cli]'")
+    sys.exit(1)
 
 from mcp_server import discover, write_config
 from scripts.crypto import encrypt_password
@@ -41,13 +49,15 @@ def main():
         username = input("User (Email): ").strip()
         password = getpass.getpass("Password: ")
 
+        print("Connecting to ERPNext...", end="", flush=True)
         try:
             result = discover(url, username, password)
+            print(" done.")
         except (requests.HTTPError, ValueError) as e:
-            print(f"Error: {e}")
+            print(f"\nError: {e}")
             continue
         except (ConnectionError, requests.exceptions.Timeout) as e:
-            print(f"Connection error: {e}")
+            print(f"\nConnection error: {e}")
             continue
 
         print(f"\nFull name:   {result['full_name']}")
@@ -75,8 +85,10 @@ def main():
             "_activity_types": activity_types,
         }
 
+        print("Saving credentials...", end="", flush=True)
         write_config(config, str(config_path))
-        print("\nCredentials saved. Return to Claude to finish setup.")
+        print(" done.")
+        print("\nSetup complete. Return to Claude and re-run /timesheet.")
         break
 
 
