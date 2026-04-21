@@ -10,7 +10,7 @@ Automate daily ERPNext timesheet filling from your Claude conversation history.
 
 ---
 
-When this skill is invoked, follow these steps exactly. Do not skip steps. Do not narrate which step you are on — no "Starting Step N", no "checking X", no intermediate announcements. The only output before the draft is the installation messages block (if any) and the setup prompt or announce line.
+When this skill is invoked, follow these steps exactly. Do not skip steps. Do not narrate which step you are on — no "Starting Step N", no "checking X", no intermediate announcements. The only output before the draft is the setup prompt or announce line.
 
 ## Step 0: Setup and Date Resolution
 
@@ -18,11 +18,9 @@ When this skill is invoked, follow these steps exactly. Do not skip steps. Do no
 - If it specifies a past date (e.g. "for yesterday", "for 2026-03-24", "last Friday") — resolve it to `YYYY-MM-DD` and store as `TARGET_DATE`.
 - Otherwise use today's date.
 
-Call `isReady` silently. Store the full response as `STATUS`.
+**Read `~/.claude/timesheet.json` silently.** Store its parsed contents as `CONFIG`.
 
-**If `configured` is `false` and `needs_defaults` is not set:**
-
-If `STATUS.install_log` is present, render it in a code block exactly as received before continuing.
+**If the file does not exist:**
 
 Tell the user:
 
@@ -32,23 +30,33 @@ Tell the user:
 > ```
 > Once done, re-run `/timesheet`.
 
-Stop here — do not wait, do not call `isReady` again.
+Stop here.
 
-**If `configured` is `false` and `needs_defaults` is `true`:**
+**If `project` or `default_activity` is empty:**
 
-Credentials are saved but defaults are missing. Use `AskUserQuestion` with two questions using `STATUS._projects` and `STATUS._activity_types`:
+Credentials are saved but defaults are missing. Use `AskUserQuestion` with two questions using `CONFIG._projects` and `CONFIG._activity_types`:
 - **Default Project**: up to 4 options from `_projects` (show `label`, value is `id`); mark current default as "(Selected)"
 - **Default Activity**: always offer these 4 options: Development, Development Testing, Debugging, Debug & Fix — plus the user can type Other for anything else
 
-Call `updateSettings` with the selected `project` and `activity_type`. Store the return value as `STATUS` — it has the same shape as a configured `isReady` response. Do not call `isReady` again.
+Call `updateSettings` with the selected `project` and `activity_type`. Store the return value as `STATUS` — it has the full configured shape. Proceed to Step 1.
 
-**If `configured` is `true` and user mentioned reconfiguring:**
+**Otherwise** build `STATUS` directly from `CONFIG`:
+```
+STATUS = {
+  configured: true,
+  username: CONFIG.username,
+  url: CONFIG.url,
+  work_hours: CONFIG.work_hours (default 8),
+  project: CONFIG.project,
+  default_activity: CONFIG.default_activity,
+}
+```
 
-Tell the user to run `timesheet-setup` in a new terminal, then re-run `/timesheet`. Stop here.
+**If user mentioned reconfiguring:** tell the user to run `timesheet-setup` in a new terminal, then re-run `/timesheet`. Stop here.
 
 Announce: `Logging work for TARGET_DATE — <username> on <url>`
 
-Otherwise proceed directly to Step 1.
+Proceed to Step 1.
 
 ## Step 1: Read Work Context
 

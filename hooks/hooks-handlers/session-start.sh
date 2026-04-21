@@ -2,7 +2,6 @@
 # Installs/updates the timesheet-setup command on session start.
 # - Creates a venv with required dependencies
 # - Writes ~/.local/bin/timesheet-setup pointing to the current plugin version
-# - Reports installation progress and any errors as additionalContext for Claude
 # - Uses a stamp file inside the venv to skip work when already up-to-date
 
 VENV_DIR="$HOME/.claude/timesheet-venv"
@@ -19,48 +18,22 @@ if [ -f "$STAMP_FILE" ] && [ "$(cat "$STAMP_FILE")" = "$PLUGIN_VERSION" ] && [ -
     exit 0
 fi
 
-messages=()
-errors=()
-
 # Create venv if missing
 if [ ! -d "$VENV_DIR" ]; then
     if ! python3 -m venv "$VENV_DIR" 2>/dev/null; then
-        errors+=("Failed to create Python virtual environment at $VENV_DIR. Make sure python3-venv is installed (e.g. sudo apt install python3-venv on Debian/Ubuntu).")
+        exit 1
     fi
 fi
 
 # Install deps if not already in the venv's own site-packages
 venv_site="$VENV_DIR/lib/$(ls "$VENV_DIR/lib" 2>/dev/null | head -1)/site-packages"
-if [ ${#errors[@]} -eq 0 ] && { [ ! -d "$venv_site/requests" ] || [ ! -d "$venv_site/cryptography" ] || [ ! -d "$venv_site/mcp" ]; }; then
-    messages+=("Set up Python environment at $VENV_DIR")
-    if "$VENV_DIR/bin/pip" install --quiet requests cryptography "mcp[cli]" 2>/dev/null; then
-        if [ -d "$venv_site/requests" ] && [ -d "$venv_site/cryptography" ] && [ -d "$venv_site/mcp" ]; then
-            messages+=("Installed packages: requests, cryptography, mcp[cli]")
-        else
-            errors+=("Packages still missing after install. Run manually: $VENV_DIR/bin/pip install requests cryptography 'mcp[cli]'")
-        fi
-    else
-        errors+=("Failed to install packages. Check your internet connection, then run: $VENV_DIR/bin/pip install requests cryptography 'mcp[cli]'")
+if [ ! -d "$venv_site/requests" ] || [ ! -d "$venv_site/cryptography" ] || [ ! -d "$venv_site/mcp" ]; then
+    if ! "$VENV_DIR/bin/pip" install --quiet requests cryptography "mcp[cli]" 2>/dev/null; then
+        exit 1
     fi
 fi
 
-# Write the launcher and stamp — only reached when something changed
-if [ ${#errors[@]} -eq 0 ]; then
-    mkdir -p "$BIN_DIR"
-    printf '#!/usr/bin/env bash\nexec "%s" "%s" "$@"\n' "$VENV_PYTHON" "$SETUP_SCRIPT" > "$BIN_DIR/timesheet-setup"
-    chmod +x "$BIN_DIR/timesheet-setup"
-    echo "$PLUGIN_VERSION" > "$STAMP_FILE"
-    messages+=("Installed timesheet-setup to $BIN_DIR/timesheet-setup")
-fi
-
-# Write messages to a log file — isReady picks it up and returns it explicitly in STATUS
-LOG_FILE="$HOME/.claude/timesheet-install.log"
-{
-    for err in "${errors[@]}"; do printf 'Error: %s\n' "$err"; done
-    for msg in "${messages[@]}"; do printf '%s\n' "$msg"; done
-    if [[ ":${PATH}:" != *":${BIN_DIR}:"* ]]; then
-        printf 'Note: %s is not on your PATH. To use timesheet-setup, run:\n' "$BIN_DIR"
-        printf "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc\n"
-        printf '(Use ~/.zshrc if on zsh. Only needed once.)\n'
-    fi
-} > "$LOG_FILE"
+mkdir -p "$BIN_DIR"
+printf '#!/usr/bin/env bash\nexec "%s" "%s" "$@"\n' "$VENV_PYTHON" "$SETUP_SCRIPT" > "$BIN_DIR/timesheet-setup"
+chmod +x "$BIN_DIR/timesheet-setup"
+echo "$PLUGIN_VERSION" > "$STAMP_FILE"
