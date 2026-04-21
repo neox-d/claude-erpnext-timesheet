@@ -63,17 +63,14 @@ if [ ${#errors[@]} -eq 0 ]; then
     messages+=("Installed timesheet-setup to $BIN_DIR/timesheet-setup")
 fi
 
-# Output additionalContext for Claude — only when something happened
-lines=()
-for err in "${errors[@]}"; do lines+=("Error: $err"); done
-for msg in "${messages[@]}"; do lines+=("$msg"); done
-if [[ ":${PATH}:" != *":${BIN_DIR}:"* ]]; then
-    lines+=("Note: $BIN_DIR is not on your PATH. To use timesheet-setup, run:")
-    lines+=("  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc")
-    lines+=("(Use ~/.zshrc if on zsh. Only needed once.)")
-fi
-
-if [ ${#lines[@]} -gt 0 ]; then
-    combined=$(printf '%s\n' "${lines[@]}" | sed 's/\\/\\\\/g; s/"/\\"/g' | awk '{printf "%s\\n", $0}')
-    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$combined"
-fi
+# Write messages to a log file — isReady picks it up and returns it explicitly in STATUS
+LOG_FILE="$HOME/.claude/timesheet-install.log"
+{
+    for err in "${errors[@]}"; do printf 'Error: %s\n' "$err"; done
+    for msg in "${messages[@]}"; do printf '%s\n' "$msg"; done
+    if [[ ":${PATH}:" != *":${BIN_DIR}:"* ]]; then
+        printf 'Note: %s is not on your PATH. To use timesheet-setup, run:\n' "$BIN_DIR"
+        printf "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc\n"
+        printf '(Use ~/.zshrc if on zsh. Only needed once.)\n'
+    fi
+} > "$LOG_FILE"
