@@ -52,34 +52,27 @@ No other change to this function.
 
 ---
 
-## Step 2 — Project Inference (SKILL.md)
+## Step 2 — Task Fetch (SKILL.md)
 
-After synthesizing entries from `MESSAGES`:
-
-1. Call `listProjects` silently → store as `PROJECTS`.
-2. For each entry, infer the ERPNext project from conversation content — topics discussed, system names, repositories mentioned, domain context. Match against `PROJECTS` by `label`/`id` similarity.
-3. Assign `entry.project` for each entry. When uncertain, default to `STATUS.project`.
-4. Collect the distinct set of projects across all entries. Call `listTasks(project)` for each — one call per unique project, not one per entry. Store as a map: `project_id → task tree`.
-5. Auto-match each entry against its own project's task tree (Feature 1 + Feature 2 matching logic).
+Unchanged from pre-Feature-3 behaviour: call `listTasks(STATUS.project)` once. All entries begin without an `entry.project` assignment; project reassignment happens lazily in Step 3 based on user input.
 
 ---
 
-## Step 3 — Draft Display (SKILL.md)
+## Step 3 — Draft Display and Lazy Project Assignment (SKILL.md)
 
-**Single-project day:** omit project prefix entirely — no visual noise.
+**Unmatched entries — project hint:** For entries showing `→ new task`, the AI uses conversation context to judge whether the work likely belongs to a different project. If yes, the draft flags the entry: `→ new task (different project?)`.
 
-**Multi-project day:** show project prefix before the task assignment:
+**User-driven lazy assignment:** If the user confirms or requests a different project for any entry:
+1. Call `listProjects` once (reuse if already fetched) → present the list
+2. User picks a project
+3. Call `listTasks` for that project (once, reuse on repeat)
+4. Re-run auto-match for affected entries, set `entry.project`
+5. Show updated draft
 
-```
-TARGET_DATE — Xh total
-─────────────────────────────────────────
-1. [2h] Implement task tree builder    → PROJ-0001 / TASK-2026-0312
-2. [2h] Write pagination tests         → PROJ-0001 / [Dev Start] / new task
-3. [2h] Review vendor proposal         → PROJ-0050 / no task
-─────────────────────────────────────────
-```
+**Single-project day:** omit project prefix — no visual noise.  
+**Multi-project day:** show project prefix before each task assignment (same format as previous design).
 
-**Edit command:** `"move entry N to PROJ-XXXX"` → update `entry.project`, re-run auto-match against that project's task tree (already in context if previously fetched; call `listTasks` lazily if not), show draft.
+**Edit trigger:** `"entry N is from a different project"` or `"move entry N to another project"`.
 
 ---
 
