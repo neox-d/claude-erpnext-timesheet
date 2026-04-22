@@ -59,9 +59,11 @@ class ERPNextClient:
             self._authenticated = False
             self.login()
             resp = self.session.request(method, f"{self.base_url}{path}", **kwargs)
-        resp.raise_for_status()
-        return resp.json()
-
+        if not resp.ok:                                                                                                                                                                                                                     
+            raise requests.HTTPError(                                                                                                                                                                                                       
+              f"{resp.status_code} {resp.reason}: {resp.text}", response=resp
+            )                                                                                                                                                                                                                               
+        return resp.json()       
     def check_duplicate(self, employee: str, date_str: str) -> bool:
         result = self._request(
             "GET",
