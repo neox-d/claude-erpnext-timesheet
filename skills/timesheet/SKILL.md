@@ -1,7 +1,7 @@
 ---
 name: timesheet
 description: Use when the user wants to submit today's ERPNext timesheet, log work hours, fill in a timesheet from conversation history, or make a backdated timesheet entry for a previous date. Uses MCP tools to interact with ERPNext.
-version: 2.0.11
+version: 2.1.0
 ---
 
 # ERPNext Timesheet
@@ -18,17 +18,23 @@ When this skill is invoked, follow these steps exactly. Do not skip steps. Do no
 - If it specifies a past date (e.g. "for yesterday", "for 2026-03-24", "last Friday") — resolve it to `YYYY-MM-DD` and store as `TARGET_DATE`.
 - Otherwise use today's date.
 
-**Read `~/.claude/timesheet.json` silently.** Store its parsed contents as `CONFIG`.
+**Call `checkConfig` silently.** Store the result as `CONFIG`.
 
-**If the file does not exist:**
+**If `CONFIG.configured` is `false` and `reason` is `credentials_missing`:**
 
-Tell the user:
+> Your ERPNext credentials aren't configured. Run `/plugin config erpnext-timesheet` to enter your URL, username, and password, then re-run `/timesheet`.
 
-> Open a new terminal and run:
-> ```
-> timesheet-setup
-> ```
-> Once done, re-run `/timesheet`.
+Stop here.
+
+**If `CONFIG.configured` is `false` and `reason` is `auth_failed`:**
+
+> ERPNext authentication failed. Run `/plugin config erpnext-timesheet` to update your credentials, then re-run `/timesheet`.
+
+Stop here.
+
+**If `CONFIG.configured` is `false` and `reason` is `connection_error`:**
+
+> Could not connect to your ERPNext instance. Check that your URL is correct and the server is reachable, then re-run `/timesheet`.
 
 Stop here.
 
@@ -52,7 +58,7 @@ STATUS = {
 }
 ```
 
-**If user mentioned reconfiguring:** tell the user to run `timesheet-setup` in a new terminal, then re-run `/timesheet`. Stop here.
+**If user mentioned reconfiguring:** tell the user to run `/plugin config erpnext-timesheet`, then re-run `/timesheet`. Stop here.
 
 Announce: `Logging work for TARGET_DATE — <username> on <url>`
 
