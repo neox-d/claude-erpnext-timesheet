@@ -25,10 +25,22 @@ def make_config_file(tmp_path: Path) -> None:
     (claude_dir / "timesheet.json").write_text(json.dumps(config))
 
 
-def set_env_creds(monkeypatch) -> None:
-    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_url", "https://erp.example.com")
-    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_username", "user@example.com")
-    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_password", "testpass")
+def set_env_creds(monkeypatch, tmp_path: Path) -> None:
+    plugin_root = tmp_path / ".claude/plugins/cache/neox-d-plugins/erpnext-timesheet/2.1.0"
+    plugin_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(plugin_root))
+
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+
+    settings = {"pluginConfigs": {"erpnext-timesheet@neox-d-plugins": {"options": {
+        "url": "https://erp.example.com",
+        "username": "user@example.com",
+    }}}}
+    (claude_dir / "settings.json").write_text(json.dumps(settings))
+
+    creds = {"pluginSecrets": {"erpnext-timesheet@neox-d-plugins": {"password": "testpass"}}}
+    (claude_dir / ".credentials.json").write_text(json.dumps(creds))
 
 
 @pytest.fixture(autouse=True)
@@ -46,7 +58,7 @@ def reset_client():
 
 def test_checkExisting_true(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
     monkeypatch.setattr(mcp_server.ERPNextClient, "check_duplicate",
@@ -56,7 +68,7 @@ def test_checkExisting_true(tmp_path, monkeypatch):
 
 def test_checkExisting_false(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
     monkeypatch.setattr(mcp_server.ERPNextClient, "check_duplicate",
@@ -68,7 +80,7 @@ def test_checkExisting_false(tmp_path, monkeypatch):
 
 def test_submitTimesheet_success(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
     monkeypatch.setattr(mcp_server.ERPNextClient, "create_timesheet",
@@ -83,7 +95,7 @@ def test_submitTimesheet_success(tmp_path, monkeypatch):
 
 def test_listTasks_returns_tree_structure(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
     flat = [
@@ -102,7 +114,7 @@ def test_listTasks_returns_tree_structure(tmp_path, monkeypatch):
 
 def test_listTasks_empty_project(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
     monkeypatch.setattr(mcp_server.ERPNextClient, "list_tasks",
@@ -114,7 +126,7 @@ def test_listTasks_empty_project(tmp_path, monkeypatch):
 
 def test_createTask_success(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
     monkeypatch.setattr(mcp_server.ERPNextClient, "create_task",
@@ -126,7 +138,7 @@ def test_createTask_success(tmp_path, monkeypatch):
 
 def test_createTask_notes_on_project_extension(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
     monkeypatch.setattr(mcp_server.ERPNextClient, "create_task",
@@ -139,7 +151,7 @@ def test_createTask_notes_on_project_extension(tmp_path, monkeypatch):
 
 def test_createTask_passes_parent_task(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
 
@@ -156,7 +168,7 @@ def test_createTask_passes_parent_task(tmp_path, monkeypatch):
 
 def test_createTask_passes_is_group(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
 
@@ -175,7 +187,7 @@ def test_createTask_passes_is_group(tmp_path, monkeypatch):
 
 def test_listProjects_returns_project_list(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
     projects = [
@@ -189,7 +201,7 @@ def test_listProjects_returns_project_list(tmp_path, monkeypatch):
 
 def test_listProjects_empty(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
     monkeypatch.setattr(mcp_server.ERPNextClient, "login", lambda self: None)
     monkeypatch.setattr(mcp_server.ERPNextClient, "list_projects",
@@ -201,16 +213,14 @@ def test_listProjects_empty(tmp_path, monkeypatch):
 
 def test_checkConfig_credentials_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_url", raising=False)
-    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_username", raising=False)
-    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_password", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
     assert checkConfig() == {"configured": False, "reason": "credentials_missing"}
 
 
 def test_checkConfig_auth_failed(tmp_path, monkeypatch):
     import requests as req
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
 
     def fake_discover(url, username, password):
         resp = req.Response()
@@ -224,7 +234,7 @@ def test_checkConfig_auth_failed(tmp_path, monkeypatch):
 def test_checkConfig_connection_error(tmp_path, monkeypatch):
     import requests as req
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     monkeypatch.setattr(mcp_server, "discover",
                         lambda url, u, p: (_ for _ in ()).throw(req.ConnectionError()))
     assert checkConfig() == {"configured": False, "reason": "connection_error"}
@@ -232,7 +242,7 @@ def test_checkConfig_connection_error(tmp_path, monkeypatch):
 
 def test_checkConfig_fresh_install_discovers_and_writes(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
 
     discover_result = {
         "employee": "EMP-001",
@@ -261,7 +271,7 @@ def test_checkConfig_fresh_install_discovers_and_writes(tmp_path, monkeypatch):
 
 def test_checkConfig_already_configured(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
 
     result = checkConfig()
@@ -274,7 +284,7 @@ def test_checkConfig_already_configured(tmp_path, monkeypatch):
 
 def test_checkConfig_missing_defaults_returns_empty_strings(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
 
     claude_dir = tmp_path / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
@@ -301,7 +311,7 @@ def test_checkConfig_missing_defaults_returns_empty_strings(tmp_path, monkeypatc
 
 def test_updateSettings_writes_project_and_activity(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
     make_config_file(tmp_path)
 
     result = updateSettings(project="PROJ-002", activity_type="Debugging")
@@ -320,7 +330,7 @@ def test_updateSettings_writes_project_and_activity(tmp_path, monkeypatch):
 
 def test_updateSettings_strips_staging_lists(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-    set_env_creds(monkeypatch)
+    set_env_creds(monkeypatch, tmp_path)
 
     claude_dir = tmp_path / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)

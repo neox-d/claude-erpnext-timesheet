@@ -204,9 +204,34 @@ _AUTH_ERROR = {
 
 
 def _load_credentials() -> dict | None:
-    url = os.environ.get("CLAUDE_PLUGIN_OPTION_url", "").rstrip("/")
-    username = os.environ.get("CLAUDE_PLUGIN_OPTION_username", "")
-    password = os.environ.get("CLAUDE_PLUGIN_OPTION_password", "")
+    plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
+    if not plugin_root:
+        return None
+    root = Path(plugin_root)
+    plugin_id = f"{root.parent.name}@{root.parent.parent.name}"
+
+    claude_dir = Path.home() / ".claude"
+
+    settings_path = claude_dir / "settings.json"
+    if not settings_path.exists():
+        return None
+    try:
+        settings = json.loads(settings_path.read_text())
+        options = settings.get("pluginConfigs", {}).get(plugin_id, {}).get("options", {})
+    except (json.JSONDecodeError, KeyError):
+        return None
+
+    creds_path = claude_dir / ".credentials.json"
+    password = ""
+    if creds_path.exists():
+        try:
+            creds_data = json.loads(creds_path.read_text())
+            password = creds_data.get("pluginSecrets", {}).get(plugin_id, {}).get("password", "")
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    url = options.get("url", "").rstrip("/")
+    username = options.get("username", "")
     if not all([url, username, password]):
         return None
     return {"url": url, "username": username, "password": password}
