@@ -486,8 +486,8 @@ def checkConfig() -> dict:
             if _is_auth_error(e):
                 return {"configured": False, "reason": "auth_failed"}
             raise
-        except Exception:
-            return {"configured": False, "reason": "auth_failed"}
+        except (requests.ConnectionError, requests.Timeout):
+            return {"configured": False, "reason": "connection_error"}
 
         config = {
             "username": creds["username"],
@@ -614,6 +614,8 @@ def updateSettings(project: str = None, activity_type: str = None,
                    timezone: str = None) -> dict:
     """Update one or more config settings. Clears temporary _projects/_activity_types lists."""
     config_path = Path.home() / ".claude" / "timesheet.json"
+    if not config_path.exists():
+        return {"configured": False, "reason": "not_configured"}
     config = json.loads(config_path.read_text())
     creds = _load_credentials()
 

@@ -307,3 +307,28 @@ def test_updateSettings_writes_project_and_activity(tmp_path, monkeypatch):
     saved = json.loads((tmp_path / ".claude" / "timesheet.json").read_text())
     assert saved["project"] == "PROJ-002"
     assert saved["default_activity"] == "Debugging"
+
+
+def test_updateSettings_strips_staging_lists(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    set_env_creds(monkeypatch)
+
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    config = {
+        "username": "user@example.com",
+        "employee": "EMP-001",
+        "company": "ACME Corp",
+        "project": "",
+        "default_activity": "",
+        "work_hours": 8,
+        "_projects": [{"id": "PROJ-001", "label": "P1"}],
+        "_activity_types": ["Development"],
+    }
+    (claude_dir / "timesheet.json").write_text(json.dumps(config))
+
+    updateSettings(project="PROJ-001", activity_type="Development")
+
+    saved = json.loads((claude_dir / "timesheet.json").read_text())
+    assert "_projects" not in saved
+    assert "_activity_types" not in saved
