@@ -38,6 +38,10 @@ Stop here.
 
 Stop here.
 
+**If the invocation message mentions reconfiguring, changing credentials, or updating settings:** tell the user to run `/plugin config erpnext-timesheet`, then re-run `/timesheet`. Stop here.
+
+**If `CONFIG.configured` is `true`:**
+
 **If `project` or `default_activity` is empty:**
 
 Credentials are saved but defaults are missing. Use `AskUserQuestion` with two questions using `CONFIG._projects` and `CONFIG._activity_types`:
@@ -46,21 +50,9 @@ Credentials are saved but defaults are missing. Use `AskUserQuestion` with two q
 
 Call `updateSettings` with the selected `project` and `activity_type`. Store the return value as `STATUS` — it has the full configured shape. Proceed to Step 1.
 
-**Otherwise** build `STATUS` directly from `CONFIG`:
-```
-STATUS = {
-  configured: true,
-  username: CONFIG.username,
-  url: CONFIG.url,
-  work_hours: CONFIG.work_hours (default 8),
-  project: CONFIG.project,
-  default_activity: CONFIG.default_activity,
-}
-```
+**Otherwise** build `STATUS` directly from `CONFIG` — `configured: true`, `username`, `url`, `project`, `default_activity` taken directly; `work_hours` defaults to 8 if absent.
 
-**If user mentioned reconfiguring:** tell the user to run `/plugin config erpnext-timesheet`, then re-run `/timesheet`. Stop here.
-
-Announce: `Logging work for TARGET_DATE — <username> on <url>`
+Announce: Logging work for `TARGET_DATE` — `<username>` on `<url>`
 
 Proceed to Step 1.
 
