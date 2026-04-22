@@ -185,5 +185,4 @@ Success: `Submitted — TS-XXXX`
 Failure: show the error, ask "Retry?" Max 3 attempts. After 3, tell the user to check their ERPNext connection.
 
 **If any MCP call returns `{"error": "auth_failed"}` at any step:** tell the user:
-> Your ERPNext session has expired. Open a new terminal, run `timesheet-setup`, then come back and re-run `/timesheet`.
-Do not retry — re-authentication requires running the setup script.
+> Your ERPNext session has expired. Run `/plugin config erpnext-timesheet` to update your credentials, then re-run `/timesheet`.
