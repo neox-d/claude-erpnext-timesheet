@@ -1,6 +1,7 @@
 import atexit
 import calendar
 import json
+import os
 import re
 import signal
 import sys
@@ -19,8 +20,6 @@ try:
     from zoneinfo import ZoneInfo
 except ImportError:
     from backports.zoneinfo import ZoneInfo  # type: ignore
-
-from scripts.crypto import decrypt_password, encrypt_password
 
 
 # ---------------------------------------------------------------------------
@@ -200,15 +199,25 @@ _client_username: str | None = None
 
 _AUTH_ERROR = {
     "error": "auth_failed",
-    "message": "ERPNext authentication failed. Re-run timesheet-setup to refresh your credentials, then re-invoke the skill.",
+    "message": "ERPNext authentication failed. Run `/plugin config erpnext-timesheet` to update your credentials, then re-invoke the skill.",
 }
 
 
-def _get_client(config: dict) -> ERPNextClient:
+def _load_credentials() -> dict | None:
+    url = os.environ.get("CLAUDE_PLUGIN_OPTION_url", "").rstrip("/")
+    username = os.environ.get("CLAUDE_PLUGIN_OPTION_username", "")
+    password = os.environ.get("CLAUDE_PLUGIN_OPTION_password", "")
+    if not all([url, username, password]):
+        return None
+    return {"url": url, "username": username, "password": password}
+
+
+def _get_client() -> ERPNextClient:
     global _client, _client_url, _client_username
-    url = config["url"]
-    username = config["username"]
-    password = decrypt_password(config["password"])
+    creds = _load_credentials()
+    if creds is None:
+        raise RuntimeError("ERPNext credentials not configured")
+    url, username, password = creds["url"], creds["username"], creds["password"]
     if _client is None or _client_url != url or _client_username != username:
         if _client is not None:
             _client.logout()
@@ -288,29 +297,6 @@ def _next_month_end(today: date_type) -> str:
 # ---------------------------------------------------------------------------
 # Log-parsing
 # ---------------------------------------------------------------------------
-
-def _validate_config_fields(config: dict) -> list:
-    required = ["url", "username", "password", "employee", "company",
-                "project", "default_activity", "work_hours"]
-    errors = []
-    for field in required:
-        if not config.get(field) and config.get(field) != 0:
-            errors.append(f"Missing required field: {field}")
-
-    wh = config.get("work_hours")
-    if wh is not None:
-        try:
-            if float(wh) <= 0:
-                errors.append("work_hours must be a positive number")
-        except (TypeError, ValueError):
-            errors.append("work_hours must be a number")
-
-    st = config.get("start_time")
-    if st and not re.match(r"^\d{2}:\d{2}$", str(st)):
-        errors.append("start_time must be in HH:MM format")
-
-    return errors
-
 
 def get_timezone(config: dict):
     tz_name = config.get("timezone")
@@ -486,6 +472,54 @@ def write_config(config: dict, path: str) -> None:
 
 
 @mcp.tool()
+def checkConfig() -> dict:
+    """Check plugin configuration. Runs ERPNext discovery on first call if timesheet.json is missing."""
+    creds = _load_credentials()
+    if creds is None:
+        return {"configured": False, "reason": "credentials_missing"}
+
+    config_path = Path.home() / ".claude" / "timesheet.json"
+    if not config_path.exists():
+        try:
+            result = discover(creds["url"], creds["username"], creds["password"])
+        except requests.HTTPError as e:
+            if _is_auth_error(e):
+                return {"configured": False, "reason": "auth_failed"}
+            raise
+        except Exception:
+            return {"configured": False, "reason": "auth_failed"}
+
+        config = {
+            "username": creds["username"],
+            "employee": result["employee"],
+            "company": result["company"],
+            "project": "",
+            "default_activity": "",
+            "work_hours": 8.0,
+            "start_time": "09:00",
+            "timezone": "",
+            "_projects": result["projects"],
+            "_activity_types": result["activity_types"],
+        }
+        write_config(config, str(config_path))
+    else:
+        config = json.loads(config_path.read_text())
+
+    return {
+        "configured": True,
+        "username": config.get("username", creds["username"]),
+        "url": creds["url"],
+        "work_hours": config.get("work_hours", 8),
+        "project": config.get("project", ""),
+        "default_activity": config.get("default_activity", ""),
+        "employee": config.get("employee", ""),
+        "company": config.get("company", ""),
+        "_projects": config.get("_projects", []),
+        "_activity_types": config.get("_activity_types", []),
+    }
+
+
+@mcp.tool()
 def readHistory(date: str) -> list:
     """Read Claude conversation messages for the given date (YYYY-MM-DD)."""
     config_path = Path.home() / ".claude" / "timesheet.json"
@@ -500,7 +534,7 @@ def checkExisting(date: str) -> dict:
     """Check whether a timesheet already exists for the given date (YYYY-MM-DD)."""
     config = _load_config()
     try:
-        client = _get_client(config)
+        client = _get_client()
         return {"exists": client.check_duplicate(config["employee"], date)}
     except requests.HTTPError as e:
         if _is_auth_error(e):
@@ -514,7 +548,7 @@ def submitTimesheet(date: str, entries: list) -> dict:
     """Build and submit a timesheet for the given date (YYYY-MM-DD) with the provided entries."""
     config = _load_config()
     try:
-        client = _get_client(config)
+        client = _get_client()
         doc = build_timesheet_doc(config, entries, date_str=date)
         name = client.create_timesheet(doc)
         client.submit_timesheet(name)
@@ -530,9 +564,8 @@ def submitTimesheet(date: str, entries: list) -> dict:
 @mcp.tool()
 def listTasks(project: str) -> list:
     """Return active tasks for the given project as a nested tree (groups contain children)."""
-    config = _load_config()
     try:
-        flat = _get_client(config).list_tasks(project)
+        flat = _get_client().list_tasks(project)
         return _build_tree(flat)
     except requests.HTTPError as e:
         if _is_auth_error(e):
@@ -544,9 +577,8 @@ def listTasks(project: str) -> list:
 @mcp.tool()
 def listProjects() -> list:
     """Return all non-Completed/non-Cancelled projects as [{id, label}]."""
-    config = _load_config()
     try:
-        return _get_client(config).list_projects()
+        return _get_client().list_projects()
     except requests.HTTPError as e:
         if _is_auth_error(e):
             _clear_client()
@@ -558,9 +590,8 @@ def listProjects() -> list:
 def createTask(subject: str, description: str, project: str, hours: float, date: str,
                parent_task: str = None, is_group: bool = False) -> dict:
     """Create a task in ERPNext. Auto-extends project end date on InvalidDates errors."""
-    config = _load_config()
     try:
-        name, notes = _get_client(config).create_task({
+        name, notes = _get_client().create_task({
             "subject": subject,
             "description": description,
             "project": project,
@@ -584,6 +615,7 @@ def updateSettings(project: str = None, activity_type: str = None,
     """Update one or more config settings. Clears temporary _projects/_activity_types lists."""
     config_path = Path.home() / ".claude" / "timesheet.json"
     config = json.loads(config_path.read_text())
+    creds = _load_credentials()
 
     if project is not None:
         config["project"] = project
@@ -602,12 +634,11 @@ def updateSettings(project: str = None, activity_type: str = None,
     config_path.write_text(json.dumps(config, indent=2))
     return {
         "configured": True,
-        "username": config.get("username"),
-        "url": config.get("url"),
+        "username": config.get("username", creds["username"] if creds else ""),
+        "url": creds["url"] if creds else "",
         "work_hours": config.get("work_hours", 8),
         "project": config.get("project"),
         "default_activity": config.get("default_activity"),
-        "setup_command": "timesheet-setup",
     }
 
 
