@@ -221,6 +221,15 @@ def test_checkConfig_auth_failed(tmp_path, monkeypatch):
     assert checkConfig() == {"configured": False, "reason": "auth_failed"}
 
 
+def test_checkConfig_connection_error(tmp_path, monkeypatch):
+    import requests as req
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    set_env_creds(monkeypatch)
+    monkeypatch.setattr(mcp_server, "discover",
+                        lambda url, u, p: (_ for _ in ()).throw(req.ConnectionError()))
+    assert checkConfig() == {"configured": False, "reason": "connection_error"}
+
+
 def test_checkConfig_fresh_install_discovers_and_writes(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
     set_env_creds(monkeypatch)
