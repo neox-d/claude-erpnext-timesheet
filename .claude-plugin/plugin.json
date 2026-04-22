@@ -1,7 +1,7 @@
 {
   "name": "erpnext-timesheet",
   "description": "Automate daily ERPNext timesheet filling from your Claude conversation history",
-  "version": "2.0.11",
+  "version": "2.1.0",
   "author": {
     "name": "neox-d"
   },
@@ -9,10 +9,35 @@
   "homepage": "https://github.com/neox-d/claude-erpnext-timesheet",
   "license": "MIT",
   "keywords": ["erpnext", "timesheet", "frappe", "productivity", "time-tracking"],
+  "userConfig": {
+    "url": {
+      "type": "string",
+      "title": "ERPNext URL",
+      "description": "Your ERPNext instance URL, e.g. https://erpnext.example.com",
+      "required": true
+    },
+    "username": {
+      "type": "string",
+      "title": "Username (Email)",
+      "description": "Your ERPNext login email address",
+      "required": true
+    },
+    "password": {
+      "type": "string",
+      "title": "Password",
+      "description": "Your ERPNext password",
+      "sensitive": true,
+      "required": true
+    }
+  },
   "mcpServers": {
     "erpnext-timesheet": {
-      "command": "bash",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/hooks-handlers/run-mcp.sh"]
+      "command": "uv",
+      "args": [
+        "run",
+        "--project", "${CLAUDE_PLUGIN_ROOT}",
+        "${CLAUDE_PLUGIN_ROOT}/skills/timesheet/mcp_server.py"
+      ]
     }
   }
 }
