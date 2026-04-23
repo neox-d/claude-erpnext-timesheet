@@ -10,7 +10,7 @@ Automate daily ERPNext timesheet filling from your Claude conversation history.
 
 ---
 
-When this skill is invoked, follow these steps exactly. Do not skip steps. Do not narrate which step you are on — no "Starting Step N", no "checking X", no intermediate announcements. The only output before the draft is the setup prompt or announce line.
+When this skill is invoked, follow these steps exactly. Do not skip steps. Before the draft (Steps 0–2): no narration — no "Starting Step N", no "checking X", no intermediate announcements. The only output before the draft is the setup prompt or announce line. During Step 3: use AskUserQuestion as specified. During Step 4: display the agent's output verbatim.
 
 ## Step 0: Setup and Date Resolution
 
