@@ -136,7 +136,7 @@ Use `AskUserQuestion`:
 - Question: `Entries {n1}, {n2}, ... seem related to {inferred topic} ({entry.project}) — could not auto-match. What should we do?`
 - Options:
   1. `Create group "{suggested name}"` — set `entry.proposed_group` to the suggested name for all entries in the cluster; mark all resolved
-  2. `Use existing group` — follow up with a second `AskUserQuestion` listing existing groups from `TASKS` for `entry.project` (default project); set `entry.parent_task` for all cluster entries; mark all resolved
+  2. `Use existing group` — follow up with a second `AskUserQuestion` listing existing groups from `TASKS` for `entry.project` (default project); set `entry.parent_task` for all cluster entries; set `entry.resolved = true` for all cluster entries
   3. `No group (root-level tasks)` — clear `parent_task` and `proposed_group` on all cluster entries; mark all resolved
   4. `Split — handle each separately` — treat each cluster entry as a singleton below
 
@@ -213,7 +213,7 @@ Submit timesheet for {TARGET_DATE}.
 
 TARGET_DATE: {TARGET_DATE}
 STATUS: {JSON — include username, project, work_hours}
-ENTRIES: {JSON array — each entry with: description, hours, activity_type, project; omit task/parent_task/proposed_group when not set}
+ENTRIES: {JSON array — each entry with: description, hours, activity_type, project; include task, parent_task, proposed_group only when set}
 ```
 
 Display the agent's output to the user verbatim.
