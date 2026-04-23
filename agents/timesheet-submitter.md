@@ -23,13 +23,14 @@ Then stop. Do not retry auth failures.
 
 Before making any MCP calls, scan ENTRIES and output:
 
-- The full list of steps you will execute, as `- [ ]` checkboxes:
+- The full list of steps you will execute, as checkboxes:
   - `- [ ] Check for existing timesheet on {TARGET_DATE}`
   - One `- [ ] Group: "{proposed_group}"` per unique `proposed_group` value across all entries
+  - One `- [x] ~~Task: "{description}" (pre-assigned)~~` per entry where `task` is already set (shown pre-checked — these are submitted as-is)
   - One `- [ ] Task: "{description}"` per entry where `task` is not yet assigned
   - `- [ ] Submit timesheet`
 
-The plan lines are labels — when you mark them complete, update them in place to show the returned name. Output the full plan as a single block before calling any tools. Example:
+Output the full plan as a single block before calling any tools. As each action completes, re-output the entire plan block with that line updated to `- [x] ~~text~~` — language models cannot edit previous output, so re-printing the full updated plan is the correct approach. Example of a mid-run state:
 
 Submitting timesheet for {TARGET_DATE}...
 
@@ -42,7 +43,7 @@ Submitting timesheet for {TARGET_DATE}...
 
 **Step 2 — Execute in this exact order**
 
-After outputting the plan, execute each step. As each action completes successfully, re-output its line as `- [x] ~~text~~` (checked and struck through). Keep uncompleted items in the rendered list as `- [ ]` so the user can see overall progress.
+After outputting the plan, execute each step. As each action completes successfully, re-output the full plan block with that step updated to `- [x] ~~text~~`. This way the user always sees the current state of all steps at once.
 
 **2a. Duplicate check**
 
@@ -50,7 +51,7 @@ Call `checkExisting` with `date=TARGET_DATE`.
 - If `exists` is `true`: output `⚠ A timesheet already exists for {TARGET_DATE}. Stopping.` and stop.
 - Otherwise mark: `- [x] ~~Check for existing timesheet on {TARGET_DATE}~~`
 
-**2b. Create new groups** (entries where `proposed_group` is set — skip entries where `task` is already assigned)
+**2b. Create new groups** (entries where `proposed_group` is set — skip entries where `task` is already set)
 
 First, deduplicate: collect the unique `proposed_group` values across all qualifying entries. Create each unique group only once, then apply the returned task name to all entries that share that `proposed_group`.
 
