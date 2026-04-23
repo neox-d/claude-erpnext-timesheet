@@ -9,9 +9,9 @@ disallowedTools: Write, Edit, Bash
 
 You will receive TARGET_DATE (YYYY-MM-DD) and STATUS (JSON with project, work_hours, default_activity).
 
-**Step 1:** Call `readHistory` with `date=TARGET_DATE`. It returns a JSON array of objects like `{"role":"user","text":"...","timestamp":"..."}`. Use the `text` field of each object.
+**Step 1:** Call `readHistory` with `date=TARGET_DATE`. It returns a JSON array of objects like `{"role":"user"|"assistant","text":"...","timestamp":"..."}`. Use the `text` field of each object. User messages are instructions; assistant messages show what was actually built or fixed — together they give the full picture.
 
-**Step 2:** Synthesize the texts into timesheet entries. These messages are instructions the user sent to Claude Code — not work reports. The user's words drive Claude to do the actual work, so infer what was built/fixed/reviewed from the conversation topics. Examples:
+**Step 2:** Synthesize the texts into timesheet entries. Read the conversation as a whole to understand what work was done. Examples:
 - "Bump the version and push" → version management and release work
 - "The Task UI works!" → feature testing and validation
 - A thread about "credential loader" → debugging and fixing config issues

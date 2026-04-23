@@ -75,7 +75,7 @@ TARGET_DATE: {TARGET_DATE}
 STATUS: {STATUS as JSON — include project, work_hours, default_activity}
 ```
 
-Store the agent's JSON output directly as `ENTRIES`. If `ENTRIES` is `[]` or empty, tell the user briefly and continue to Step 3 with no entries.
+Store the agent's JSON output directly as `ENTRIES`. **Dispatch the history-reader agent exactly once — never re-dispatch regardless of the result.** If `ENTRIES` is `[]` or empty, tell the user briefly and continue to Step 3 with no entries.
 
 Call TaskUpdate on `TASK_READ`, status: `completed`.
 Call TaskUpdate on `TASK_SYNTH`, status: `in_progress`.

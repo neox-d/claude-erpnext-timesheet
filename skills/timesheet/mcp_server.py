@@ -380,7 +380,7 @@ def get_today_messages(tz=None, target_date=None) -> list:
                     except json.JSONDecodeError:
                         continue
 
-                    if entry.get("type") != "user":
+                    if entry.get("type") not in ("user", "assistant"):
                         continue
 
                     ts_str = entry.get("timestamp", "")
@@ -401,7 +401,7 @@ def get_today_messages(tz=None, target_date=None) -> list:
                         continue
 
                     messages.append({
-                        "role": "user",
+                        "role": entry["type"],
                         "text": text[:300],
                         "cwd": entry.get("cwd", ""),
                         "timestamp": ts_local.isoformat(),
