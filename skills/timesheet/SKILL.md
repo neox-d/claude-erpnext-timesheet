@@ -206,10 +206,6 @@ All resolved — submit, or let me know what to change.
 
 ## Step 4: Submit
 
-Call `checkExisting` with `date=TARGET_DATE` silently.
-
-If `exists` is `true`: "A timesheet already exists for TARGET_DATE — submit anyway?" If no, return to Step 3.
-
 Dispatch to the `timesheet-submitter` agent with this prompt (substitute actual values):
 
 ```
@@ -217,10 +213,10 @@ Submit timesheet for {TARGET_DATE}.
 
 TARGET_DATE: {TARGET_DATE}
 STATUS: {JSON — include username, project, work_hours}
-ENTRIES: {JSON array — each entry with: description, hours, activity_type, project, task (if set), parent_task (if set), proposed_group (if set)}
+ENTRIES: {JSON array — each entry with: description, hours, activity_type, project; omit task/parent_task/proposed_group when not set}
 ```
 
-Display the agent's output to the user verbatim as it arrives.
+Display the agent's output to the user verbatim.
 
 **If any MCP call returns `{"error": "auth_failed"}` at any step:** tell the user:
 > Your ERPNext session has expired. Run `/plugin config erpnext-timesheet` to update your credentials, then re-run `/timesheet`.
