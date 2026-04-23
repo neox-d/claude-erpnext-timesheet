@@ -154,7 +154,7 @@ Use `AskUserQuestion`:
 - Options: existing groups from `TASKS` (nodes where `is_group=1`) + `Create new group` + `No group (root-level task)`
 
 If `Create new group` selected:
-- Derive a suggested group name from the entry description (short, title-case, topic-focused — e.g. "MCP Plugin Work", "Auth Refactor"). Use `AskUserQuestion` with the question `Name for this group?` and options: the suggested name first, then `Rename (I'll type it)`. If `Rename` selected, ask for the name as a plain conversational message and wait for their reply. Set `entry.proposed_group` to the chosen name.
+- Derive a suggested group name from the entry description (short, title-case, topic-focused — e.g. "MCP Plugin Work", "Auth Refactor"). Use `AskUserQuestion` with the question `Name for this group?` and options: the suggested name first, then `Rename (I'll type it)`. If `Rename` selected, ask for the name as a plain conversational message and wait for their reply; then echo `Using "{name}".` before continuing. Set `entry.proposed_group` to the chosen name.
 - Immediately offer to pull in other ⚠ entries that don't yet have a group: use `AskUserQuestion` listing each remaining entry where `resolved = false` and `parent_task` and `proposed_group` are both unset — as a multi-select. For each entry selected, set `entry.proposed_group` to the same name and mark `entry.resolved = true`, skipping their Q2/Q3.
 
 If an existing group selected: set `entry.parent_task = group.name`.
