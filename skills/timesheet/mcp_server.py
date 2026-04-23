@@ -346,6 +346,10 @@ _NOISE_PREFIXES = (
     "<command-name>",
     "<command-message>",
     "<local-command-stdout>",
+    "Base directory for this skill:",
+    "This session is being continued from",
+    "[Request interrupted",
+    "[Image",
 )
 
 
