@@ -98,58 +98,108 @@ Store synthesized entries as `ENTRIES`.
 
 ## Step 3: Draft Review
 
-If overdue tasks exist, list them before the draft:
-> **Overdue:** TASK-XXXX — subject (N days), ...
+If overdue tasks were identified in Step 2, list them before the draft:
+> **Overdue tasks:** TASK-XXXX — subject (N days overdue), ...
 
-Display the draft:
+**Display the draft:**
 
-**If all entries share one project** (single-project day), omit the project prefix — no visual noise:
-
-```
-TARGET_DATE — Xh total
-─────────────────────────────────────────
-1. [Xh] Description one          → TASK-XXXX
-2. [Xh] Description two          → [GROUP-XXXX] / new task
-─────────────────────────────────────────
-Submit, or let me know what to change.
-```
-
-**If entries span multiple projects**, show project prefix before each task assignment:
+Each entry is two lines. Status marker at column 0 (`✓` resolved, `⚠` needs matching):
 
 ```
 TARGET_DATE — Xh total
-─────────────────────────────────────────
-1. [2h] Implement task tree builder    → PROJ-0001 / TASK-XXXX
-2. [2h] Write pagination tests         → PROJ-0001 / [Dev Start] / new task
-3. [2h] Review vendor proposal         → PROJ-0050 / no task
-─────────────────────────────────────────
-Submit, or let me know what to change.
+──────────────────────────────────────────────────────────────
+✓ 1. [Xh] Description one
+      Activity  ·  PROJ-XXXX / Group Name / TASK-XXXX
+
+✓ 2. [Xh] Description two
+      Deployment  ·  PROJ-XXXX / Infrastructure / new task
+
+⚠ 3. [Xh] Description three
+      Development  ·  PROJ-XXXX / ? needs matching
+──────────────────────────────────────────────────────────────
+N entries need matching — resolving below.
 ```
 
-Legend: `→ TASK-XXXX` = direct assign; `→ [GROUP] / new task` = child of existing group; `→ [new "Name"] / new task` = child of proposed new group; `→ new task` = root level.
+Rules:
+- Project is **always shown** — never omitted, even on single-project days.
+- Group shown if known; `/ ? needs matching` if not.
+- Task field: `TASK-XXXX` (matched), `TASK-XXXX ⚠ Nd` (overdue matched), `new task` (will create), `? needs matching` (unresolved).
+- Show the "N entries need matching" line only if N > 0. If all resolved, show `Submit, or let me know what to change.` instead.
 
-**Unmatched entries and project hints:** For entries showing `→ new task`, use conversation context to judge whether the work likely belongs to a different project than `STATUS.project`. If yes, flag the entry in the draft:
+**Interactive resolution (only if ⚠ entries exist):**
+
+Process clusters before singletons.
+
+**Cluster resolution** — for each cluster of 2+ ⚠ entries (same `cluster_id`):
+
+Use `AskUserQuestion`:
+- Question: `Entries {n1}, {n2}, ... seem related to {inferred topic} ({entry.project}). No matching group found — what should we do?`
+- Options:
+  1. `Create group "{suggested name}"` — set `entry.proposed_group` to the suggested name for all entries in the cluster; mark all resolved
+  2. `Use existing group` — follow up with a second `AskUserQuestion` listing existing groups from `TASKS`; set `entry.parent_task` for all cluster entries; mark all resolved
+  3. `No group (root-level tasks)` — clear `parent_task` and `proposed_group` on all cluster entries; mark all resolved
+  4. `Split — handle each separately` — treat each cluster entry as a singleton below
+
+**Per-entry resolution** — for singletons and entries split from clusters, in order:
+
+**Q1 — Project** (skip if `entry.project` is already known and not flagged as off-topic):
+Use `AskUserQuestion`:
+- Question: `Entry N — "{description}" — which project?`
+- Options: each item from `CONFIG._projects` (show `label`, value is `id`) + `Other (I'll type it)`
+Set `entry.project` to the selected id.
+
+**Q2 — Group** (skip if `entry.parent_task` or `entry.proposed_group` is already set):
+Use `AskUserQuestion`:
+- Question: `Entry N — "{description}" — which task group? ({entry.project})`
+- Options: existing groups from `TASKS` (nodes where `is_group=1`) + `Create new group` + `No group (root-level task)`
+
+If `Create new group` selected:
+- Ask the user to name it via `AskUserQuestion` (free text).
+- Set `entry.proposed_group` to the name.
+- Immediately offer to pull in other ⚠ entries: use `AskUserQuestion` listing all remaining unresolved entry descriptions as a multi-select. For each entry selected, set `entry.proposed_group` to the same name and skip their Q2/Q3.
+
+If an existing group selected: set `entry.parent_task = group.name`.
+If `No group`: leave both unset; mark `entry.resolved = true`.
+
+**Q3 — Task** (skip if `entry.task` is set, or if entry will create a new task under a known group):
+Use `AskUserQuestion`:
+- Question: `Entry N — "{description}" — assign to an existing task?`
+- Options — overdue tasks first, then open tasks, then new:
+  - Overdue: `TASK-XXXX — {subject} (⚠ Nd overdue)`
+  - Open: `TASK-XXXX — {subject}`
+  - Last option: `New task (create one under {group name or "root"})`
+
+If an existing task selected: set `entry.task = task.name`. Mark `entry.resolved = true`.
+If `New task`: leave `entry.task` unset. Mark `entry.resolved = true`.
+
+**After all entries resolved:**
+
+Re-render the full draft with `✓` on all entries:
 
 ```
-3. [2h] Review vendor proposal    → new task (different project?)
+TARGET_DATE — Xh total
+──────────────────────────────────────────────────────────────
+✓ 1. [Xh] Description one
+      Activity  ·  PROJ-XXXX / Group Name / TASK-XXXX
+
+✓ 2. [Xh] Description two
+      Activity  ·  PROJ-XXXX / [new "Group Name"] / new task
+──────────────────────────────────────────────────────────────
+All resolved — submit, or let me know what to change.
 ```
 
-If the user confirms or asks to assign a different project to any entry, call `listProjects` silently (once — reuse if already fetched), present the list, let the user pick, then call `listTasks` for that project and re-run auto-match for the affected entries. Update `entry.project` on each reassigned entry.
+**Conversational edits** (handle at any point):
 
-**Handle edits conversationally.** `TASKS` is already in context — no extra MCP call unless the user asks to create a new task.
-
-- Edit description → update entry, show draft
-- Delete entry → remove, recalculate hours, show draft
-- Add entry → append, show draft
-- Assign by name or topic → look up in `TASKS` recursively (search all nodes), assign, show draft
-- Create new task → ask for subject (pre-fill from entry), call `createTask`, assign returned name, show draft
-- Redistribute hours → recalculate evenly, show draft
+- Edit description → update entry, re-render draft
+- Delete entry → remove, recalculate hours, re-render draft
+- Add entry → append, re-render draft
+- Change activity → update `entry.activity_type`, re-render draft
+- Reassign task → look up in `TASKS` recursively, assign, re-render draft
+- Change project → set `entry.project`, re-fetch tasks if needed, re-run Q2/Q3 for that entry
+- Redistribute hours → recalculate evenly, re-render draft
+- Move to group → set `entry.parent_task`, clear `entry.proposed_group`, re-render draft
+- Move to root → clear both `entry.parent_task` and `entry.proposed_group`, re-render draft
 - "Submit" / "Looks good" / "Go ahead" → Step 4
-- Move to existing group → `"put entry N under Group X"` → set `parent_task` to matched group name, clear `proposed_group`, show draft
-- Propose new group → `"create group Z for entry N"` → set `proposed_group` to Z, clear `parent_task`, show draft
-- Remove group placement → `"move entry N to root"` → clear both `parent_task` and `proposed_group`, show draft
-- Rename proposed group → `"rename the new group to X"` → update `proposed_group` subject, show draft
-- Reassign project → `"entry N is from a different project"` or `"move entry N to another project"` → call `listProjects` (once, if not already fetched), present the list, user picks → call `listTasks` for that project (if not already fetched), re-run auto-match for affected entries, set `entry.project`, show draft
 
 **Hours mismatch:** if total ≠ `STATUS.work_hours` at approval, note it: "Total is Xh, default is Yh — proceed?" and wait.
 
