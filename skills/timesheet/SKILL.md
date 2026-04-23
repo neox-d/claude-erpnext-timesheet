@@ -22,13 +22,13 @@ When this skill is invoked, follow these steps exactly. Do not skip steps. Befor
 
 **If `CONFIG.configured` is `false` and `reason` is `credentials_missing`:**
 
-> Your ERPNext credentials aren't configured. Run `/plugin config erpnext-timesheet` to enter your URL, username, and password, then re-run `/timesheet`.
+> Your ERPNext credentials aren't configured. Run `/plugin` → Installed → erpnext-timesheet → Configure Options to enter your URL, username, and password, then re-run `/timesheet`.
 
 Stop here.
 
 **If `CONFIG.configured` is `false` and `reason` is `auth_failed`:**
 
-> ERPNext authentication failed. Run `/plugin config erpnext-timesheet` to update your credentials, then re-run `/timesheet`.
+> ERPNext authentication failed. Run `/plugin` → Installed → erpnext-timesheet → Configure Options to update your credentials, then re-run `/timesheet`.
 
 Stop here.
 
@@ -38,7 +38,7 @@ Stop here.
 
 Stop here.
 
-**If the invocation message mentions reconfiguring, changing credentials, or updating settings:** tell the user to run `/plugin config erpnext-timesheet`, then re-run `/timesheet`. Stop here.
+**If the invocation message mentions reconfiguring, changing credentials, or updating settings:** tell the user to run `/plugin` → Installed → erpnext-timesheet → Configure Options, then re-run `/timesheet`. Stop here.
 
 **If `CONFIG.configured` is `true`:**
 
@@ -247,5 +247,5 @@ The agent emits one `STEP:` line per completed action. Parse the agent's full ou
 | `STEP: group → "Name" → ID` | — |
 | `STEP: task → "desc" → ID` | — |
 | `STEP: submit → TS-XXXX` | Call TaskUpdate on `TASK_SUBMIT`, status: `completed`. Output `Done. TS-XXXX` |
-| `STEP: error → auth_failed` | Call TaskUpdate on `TASK_SUBMIT`, status: `completed`. Output: **Your ERPNext session has expired. Run `/plugin config erpnext-timesheet` to update your credentials, then re-run `/timesheet`.** |
+| `STEP: error → auth_failed` | Call TaskUpdate on `TASK_SUBMIT`, status: `completed`. Output: **Your ERPNext session has expired. Run `/plugin` → Installed → erpnext-timesheet → Configure Options to update your credentials, then re-run `/timesheet`.** |
 | `STEP: error → {message}` | Show the error, ask "Retry?" — if yes, re-dispatch the agent (max 3 retries total); if no, call TaskUpdate on `TASK_SUBMIT`, status: `completed`, then stop |

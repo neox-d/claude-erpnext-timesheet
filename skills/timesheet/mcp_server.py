@@ -200,7 +200,7 @@ _client_username: str | None = None
 
 _AUTH_ERROR = {
     "error": "auth_failed",
-    "message": "ERPNext authentication failed. Run `/plugin config erpnext-timesheet` to update your credentials, then re-invoke the skill.",
+    "message": "ERPNext authentication failed. Run `/plugin` → Installed → erpnext-timesheet → Configure Options to update your credentials, then re-invoke the skill.",
 }
 
 
