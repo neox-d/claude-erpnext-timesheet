@@ -122,9 +122,9 @@ N entries need matching — resolving below.
 
 Rules:
 - Project is **always shown** — never omitted, even on single-project days.
-- Group shown if known; `/ ? needs matching` if not.
+- Group field: existing group name (plain text), proposed new group as `[new "Name"]`, omitted as `/ ? needs matching` if unknown.
 - Task field: `TASK-XXXX` (matched), `TASK-XXXX ⚠ Nd` (overdue matched), `new task` (will create), `? needs matching` (unresolved).
-- Show the "N entries need matching" line only if N > 0. If all resolved, show `Submit, or let me know what to change.` instead.
+- Show `N entries need matching — resolving below.` only if N > 0. If all resolved from the start, show `All resolved — submit, or let me know what to change.` instead.
 
 **Interactive resolution (only if ⚠ entries exist):**
 
@@ -133,16 +133,16 @@ Process clusters before singletons.
 **Cluster resolution** — for each cluster of 2+ ⚠ entries (same `cluster_id`):
 
 Use `AskUserQuestion`:
-- Question: `Entries {n1}, {n2}, ... seem related to {inferred topic} ({entry.project}). No matching group found — what should we do?`
+- Question: `Entries {n1}, {n2}, ... seem related to {inferred topic} ({entry.project}) — could not auto-match. What should we do?`
 - Options:
   1. `Create group "{suggested name}"` — set `entry.proposed_group` to the suggested name for all entries in the cluster; mark all resolved
-  2. `Use existing group` — follow up with a second `AskUserQuestion` listing existing groups from `TASKS`; set `entry.parent_task` for all cluster entries; mark all resolved
+  2. `Use existing group` — follow up with a second `AskUserQuestion` listing existing groups from `TASKS` for `entry.project` (default project); set `entry.parent_task` for all cluster entries; mark all resolved
   3. `No group (root-level tasks)` — clear `parent_task` and `proposed_group` on all cluster entries; mark all resolved
   4. `Split — handle each separately` — treat each cluster entry as a singleton below
 
 **Per-entry resolution** — for singletons and entries split from clusters, in order:
 
-**Q1 — Project** (skip if `entry.project` is already known and not flagged as off-topic):
+**Q1 — Project** (skip if `entry.project` is already set):
 Use `AskUserQuestion`:
 - Question: `Entry N — "{description}" — which project?`
 - Options: each item from `CONFIG._projects` (show `label`, value is `id`) + `Other (I'll type it)`
@@ -154,14 +154,13 @@ Use `AskUserQuestion`:
 - Options: existing groups from `TASKS` (nodes where `is_group=1`) + `Create new group` + `No group (root-level task)`
 
 If `Create new group` selected:
-- Ask the user to name it via `AskUserQuestion` (free text).
-- Set `entry.proposed_group` to the name.
-- Immediately offer to pull in other ⚠ entries: use `AskUserQuestion` listing all remaining unresolved entry descriptions as a multi-select. For each entry selected, set `entry.proposed_group` to the same name and skip their Q2/Q3.
+- Derive a suggested group name from the entry description (short, title-case, topic-focused — e.g. "MCP Plugin Work", "Auth Refactor"). Use `AskUserQuestion` with the question `Name for this group?` and options: the suggested name first, then `Rename (I'll type it)`. If `Rename` selected, ask for the name as a plain conversational message and wait for their reply. Set `entry.proposed_group` to the chosen name.
+- Immediately offer to pull in other ⚠ entries that don't yet have a group: use `AskUserQuestion` listing each remaining entry where `resolved = false` and `parent_task` and `proposed_group` are both unset — as a multi-select. For each entry selected, set `entry.proposed_group` to the same name and mark `entry.resolved = true`, skipping their Q2/Q3.
 
 If an existing group selected: set `entry.parent_task = group.name`.
 If `No group`: leave both unset; mark `entry.resolved = true`.
 
-**Q3 — Task** (skip if `entry.task` is set, or if entry will create a new task under a known group):
+**Q3 — Task** (skip if `entry.task` is set, `entry.parent_task` is set, `entry.proposed_group` is set, or `entry.resolved` is true):
 Use `AskUserQuestion`:
 - Question: `Entry N — "{description}" — assign to an existing task?`
 - Options — overdue tasks first, then open tasks, then new:
@@ -194,10 +193,10 @@ All resolved — submit, or let me know what to change.
 - Delete entry → remove, recalculate hours, re-render draft
 - Add entry → append, re-render draft
 - Change activity → update `entry.activity_type`, re-render draft
-- Reassign task → look up in `TASKS` recursively, assign, re-render draft
+- Reassign to leaf task → look up leaf tasks (non-group) in `TASKS` recursively, assign, re-render draft
+- Move to group → look up groups (`is_group=1`) in `TASKS`, set `entry.parent_task`, clear `entry.proposed_group`, re-render draft
 - Change project → set `entry.project`, re-fetch tasks if needed, re-run Q2/Q3 for that entry
 - Redistribute hours → recalculate evenly, re-render draft
-- Move to group → set `entry.parent_task`, clear `entry.proposed_group`, re-render draft
 - Move to root → clear both `entry.parent_task` and `entry.proposed_group`, re-render draft
 - "Submit" / "Looks good" / "Go ahead" → Step 4
 
