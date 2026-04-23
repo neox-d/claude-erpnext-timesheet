@@ -156,6 +156,7 @@ class ERPNextClient:
             doc["parent_task"] = task_input["parent_task"]
         if is_group:
             doc["is_group"] = 1
+            doc["status"] = "Open"
         else:
             doc["expected_time"] = task_input["hours"]
             doc["exp_start_date"] = task_input["date"]

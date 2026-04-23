@@ -141,7 +141,7 @@ N entries need matching — resolving below.
 
 Rules:
 - Project is **always shown** — never omitted, even on single-project days.
-- Group field: existing group name (plain text), proposed new group as `[new "Name"]`, omitted as `/ ? needs matching` if unknown.
+- Task Group field: existing Task Group name (plain text), proposed new Task Group as `[new "Name"]`, omitted as `/ ? needs matching` if unknown.
 - Task field: `TASK-XXXX` (matched), `TASK-XXXX ⚠ Nd` (overdue matched), `new task` (will create), `? needs matching` (unresolved).
 - Show `N entries need matching — resolving below.` only if N > 0. If all resolved from the start, show `All resolved — submit, or let me know what to change.` instead.
 
@@ -154,9 +154,9 @@ Process clusters before singletons.
 Use `AskUserQuestion`:
 - Question: `Entries {n1}, {n2}, ... seem related to {inferred topic} ({entry.project}) — could not auto-match. What should we do?`
 - Options:
-  1. `Create group "{suggested name}"` — set `entry.proposed_group` to the suggested name for all entries in the cluster; mark all resolved
-  2. `Use existing group` — follow up with a second `AskUserQuestion` listing existing groups from `TASKS` for `entry.project` (default project); set `entry.parent_task` for all cluster entries; set `entry.resolved = true` for all cluster entries
-  3. `No group (root-level tasks)` — clear `parent_task` and `proposed_group` on all cluster entries; mark all resolved
+  1. `Create Task Group "{suggested name}"` — set `entry.proposed_group` to the suggested name for all entries in the cluster; mark all resolved
+  2. `Use existing Task Group` — follow up with a second `AskUserQuestion` listing existing Task Groups from `TASKS` for `entry.project` (default project); set `entry.parent_task` for all cluster entries; set `entry.resolved = true` for all cluster entries
+  3. `No Task Group (root-level tasks)` — clear `parent_task` and `proposed_group` on all cluster entries; mark all resolved
   4. `Split — handle each separately` — treat each cluster entry as a singleton below
 
 **Per-entry resolution** — for singletons and entries split from clusters, in order:
@@ -167,17 +167,17 @@ Use `AskUserQuestion`:
 - Options: each item from `CONFIG._projects` (show `label`, value is `id`) + `Other (I'll type it)`
 Set `entry.project` to the selected id.
 
-**Q2 — Group** (skip if `entry.parent_task` or `entry.proposed_group` is already set):
+**Q2 — Task Group** (skip if `entry.parent_task` or `entry.proposed_group` is already set):
 Use `AskUserQuestion`:
-- Question: `Entry N — "{description}" — which task group? ({entry.project})`
-- Options: existing groups from `TASKS` (nodes where `is_group=1`) + `Create new group` + `No group (root-level task)`
+- Question: `Entry N — "{description}" — which Task Group? ({entry.project})`
+- Options: existing Task Groups from `TASKS` (nodes where `is_group=1`) + `Create new Task Group` + `No Task Group (root-level task)`
 
-If `Create new group` selected:
-- Derive a suggested group name from the entry description (short, title-case, topic-focused — e.g. "MCP Plugin Work", "Auth Refactor"). Use `AskUserQuestion` with the question `Name for this group?` and options: the suggested name first, then `Rename (I'll type it)`. If `Rename` selected, ask for the name as a plain conversational message and wait for their reply; then echo `Using "{name}".` before continuing. Set `entry.proposed_group` to the chosen name.
-- Immediately offer to pull in other ⚠ entries that don't yet have a group: use `AskUserQuestion` listing each remaining entry where `resolved = false` and `parent_task` and `proposed_group` are both unset — as a multi-select. For each entry selected, set `entry.proposed_group` to the same name and mark `entry.resolved = true`, skipping their Q2/Q3.
+If `Create new Task Group` selected:
+- Derive a suggested Task Group name from the entry description (short, title-case, topic-focused — e.g. "MCP Plugin Work", "Auth Refactor"). Use `AskUserQuestion` with the question `Name for this Task Group?` and options: the suggested name first, then `Rename (I'll type it)`. If `Rename` selected, ask for the name as a plain conversational message and wait for their reply; then echo `Using "{name}".` before continuing. Set `entry.proposed_group` to the chosen name.
+- Immediately offer to pull in other ⚠ entries that don't yet have a Task Group: use `AskUserQuestion` listing each remaining entry where `resolved = false` and `parent_task` and `proposed_group` are both unset — as a multi-select. For each entry selected, set `entry.proposed_group` to the same name and mark `entry.resolved = true`, skipping their Q2/Q3.
 
-If an existing group selected: set `entry.parent_task = group.name`.
-If `No group`: leave both unset; mark `entry.resolved = true`.
+If an existing Task Group selected: set `entry.parent_task = group.name`.
+If `No Task Group`: leave both unset; mark `entry.resolved = true`.
 
 **Q3 — Task** (skip if `entry.task` is set, `entry.parent_task` is set, `entry.proposed_group` is set, or `entry.resolved` is true):
 Use `AskUserQuestion`:
@@ -185,7 +185,7 @@ Use `AskUserQuestion`:
 - Options — overdue tasks first, then open tasks, then new:
   - Overdue: `TASK-XXXX — {subject} (⚠ Nd overdue)`
   - Open: `TASK-XXXX — {subject}`
-  - Last option: `New task (create one under {group name or "root"})`
+  - Last option: `New task (create one under {Task Group name or "root"})`
 
 If an existing task selected: set `entry.task = task.name`. Mark `entry.resolved = true`.
 If `New task`: leave `entry.task` unset. Mark `entry.resolved = true`.
@@ -213,7 +213,7 @@ All resolved — submit, or let me know what to change.
 - Add entry → append, re-render draft
 - Change activity → update `entry.activity_type`, re-render draft
 - Reassign to leaf task → look up leaf tasks (non-group) in `TASKS` recursively, assign, re-render draft
-- Move to group → look up groups (`is_group=1`) in `TASKS`, set `entry.parent_task`, clear `entry.proposed_group`, re-render draft
+- Move to Task Group → look up Task Groups (`is_group=1`) in `TASKS`, set `entry.parent_task`, clear `entry.proposed_group`, re-render draft
 - Change project → set `entry.project`, re-fetch tasks if needed, re-run Q2/Q3 for that entry
 - Redistribute hours → recalculate evenly, re-render draft
 - Move to root → clear both `entry.parent_task` and `entry.proposed_group`, re-render draft
