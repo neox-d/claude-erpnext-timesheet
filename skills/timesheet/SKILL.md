@@ -10,7 +10,7 @@ Automate daily ERPNext timesheet filling from your Claude conversation history.
 
 ---
 
-When this skill is invoked, follow these steps exactly. Do not skip steps. Before the draft (Steps 0–2): no narration — no "Starting Step N", no "checking X", no intermediate announcements. The only output before the draft is the setup prompt or announce line. During Step 3: use AskUserQuestion as specified. During Step 4: show the timesheet-submitter agent's output verbatim.
+When this skill is invoked, follow these steps exactly. Do not skip steps. Before the draft (Steps 0–2): no narration — no "Starting Step N", no "checking X", no intermediate announcements. The only output before the draft is the setup prompt or announce line. During Step 3: use AskUserQuestion as specified.
 
 ## Step 0: Setup and Date Resolution
 
@@ -54,6 +54,14 @@ Call `updateSettings` with the selected `project` and `activity_type`. Store the
 
 Announce: Logging work for `TARGET_DATE` — `<username>` on `<url>`
 
+**Create tasks** via TaskCreate for the remaining steps. Store their IDs:
+- `TASK_READ`: subject "Read conversation history", activeForm "Reading history"
+- `TASK_SYNTH`: subject "Synthesize entries", activeForm "Synthesizing entries"
+- `TASK_DRAFT`: subject "Review draft", activeForm "Reviewing draft"
+- `TASK_SUBMIT`: subject "Submit timesheet", activeForm "Submitting timesheet"
+
+Call TaskUpdate on `TASK_READ`, status: `in_progress`.
+
 Proceed to Step 1.
 
 ## Step 1: Read Work Context
@@ -63,6 +71,9 @@ Call `readHistory` with `date=TARGET_DATE` silently. Store as `MESSAGES`.
 **If the user specified a different source** (git commits, manual description, a file), use that instead — run `git log`, read files, or ask. The goal is the same: gather enough context to synthesize entries in Step 2.
 
 If no messages found, tell the user briefly and continue to Step 3 with an empty list.
+
+Call TaskUpdate on `TASK_READ`, status: `completed`.
+Call TaskUpdate on `TASK_SYNTH`, status: `in_progress`.
 
 ## Step 2: Synthesize + Fetch Tasks
 
@@ -95,6 +106,9 @@ For each entry, search `TASKS` recursively by keyword overlap between the entry 
 After classifying all entries, group the ⚠ entries by shared topic keywords (e.g. entries mentioning "MCP", "plugin", "auth" form a cluster). Store each cluster as a list of entry indices. Assign each ⚠ entry a `cluster_id` (a short label like "mcp-work"); singletons get `cluster_id = null`.
 
 Store synthesized entries as `ENTRIES`.
+
+Call TaskUpdate on `TASK_SYNTH`, status: `completed`.
+Call TaskUpdate on `TASK_DRAFT`, status: `in_progress`.
 
 ## Step 3: Draft Review
 
@@ -204,21 +218,14 @@ All resolved — submit, or let me know what to change.
 
 **Empty entries:** if user tries to submit with no entries, ask them to add some first.
 
+When the user approves:
+
+Call TaskUpdate on `TASK_DRAFT`, status: `completed`.
+Call TaskUpdate on `TASK_SUBMIT`, status: `in_progress`.
+
 ## Step 4: Submit
 
-**Before dispatching**, scan ENTRIES and output the submission plan:
-
-```
-Submitting timesheet for {TARGET_DATE}...
-
-- [x] ~~Task: "{description}" (pre-assigned)~~   ← one per entry where task is already set
-- [ ] Check for existing timesheet on {TARGET_DATE}
-- [ ] Group: "{proposed_group}"                  ← one per unique proposed_group value
-- [ ] Task: "{description}"                      ← one per entry where task is not yet assigned
-- [ ] Submit timesheet
-```
-
-Then dispatch the `timesheet-submitter` agent:
+Dispatch the `timesheet-submitter` agent:
 
 ```
 TARGET_DATE: {TARGET_DATE}
@@ -226,14 +233,14 @@ STATUS: {JSON — include username, project, work_hours}
 ENTRIES: {JSON array — each entry with: description, hours, activity_type, project; include task, parent_task, proposed_group only when set}
 ```
 
-The agent emits one `STEP:` line per completed action. As each line arrives, re-render the full plan with that item struck through:
+The agent emits one `STEP:` line per completed action. Parse the agent's full output and handle each line:
 
-| Agent output | Plan update |
+| Agent output | Action |
 |---|---|
-| `STEP: check → passed` | `- [x] ~~Check for existing timesheet on {TARGET_DATE}~~` |
-| `STEP: check → duplicate_found` | `- [x] ~~Check for existing timesheet on {TARGET_DATE}~~` then stop — output `⚠ A timesheet already exists for {TARGET_DATE}.` and return to Step 3 |
-| `STEP: group → "Name" → ID` | `- [x] ~~Group: "Name" → ID~~` |
-| `STEP: task → "desc" → ID` | `- [x] ~~Task: "desc" → ID~~` |
-| `STEP: submit → TS-XXXX` | `- [x] ~~Submit timesheet → TS-XXXX~~` then output `Done.` |
-| `STEP: error → auth_failed` | Stop — output: **Your ERPNext session has expired. Run `/plugin config erpnext-timesheet` to update your credentials, then re-run `/timesheet`.** |
-| `STEP: error → {message}` | Show the error, ask "Retry?" — if yes, re-dispatch the agent (max 3 retries total); if no, stop |
+| `STEP: check → passed` | — |
+| `STEP: check → duplicate_found` | Call TaskUpdate on `TASK_SUBMIT`, status: `completed`. Output `⚠ A timesheet already exists for {TARGET_DATE}.` and return to Step 3 |
+| `STEP: group → "Name" → ID` | — |
+| `STEP: task → "desc" → ID` | — |
+| `STEP: submit → TS-XXXX` | Call TaskUpdate on `TASK_SUBMIT`, status: `completed`. Output `Done. TS-XXXX` |
+| `STEP: error → auth_failed` | Call TaskUpdate on `TASK_SUBMIT`, status: `completed`. Output: **Your ERPNext session has expired. Run `/plugin config erpnext-timesheet` to update your credentials, then re-run `/timesheet`.** |
+| `STEP: error → {message}` | Show the error, ask "Retry?" — if yes, re-dispatch the agent (max 3 retries total); if no, call TaskUpdate on `TASK_SUBMIT`, status: `completed`, then stop |
