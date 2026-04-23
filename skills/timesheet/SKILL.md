@@ -66,9 +66,15 @@ Proceed to Step 1.
 
 ## Step 1: Read Work Context
 
-Call `readHistory` with `date=TARGET_DATE` silently. Store as `MESSAGES`.
+**If the user specified a different source** (git commits, manual description, a file), use that instead — run `git log`, read files, or ask. Store the gathered context as `MESSAGES`.
 
-**If the user specified a different source** (git commits, manual description, a file), use that instead — run `git log`, read files, or ask. The goal is the same: gather enough context to synthesize entries in Step 2.
+Otherwise, dispatch the `history-reader` agent:
+
+```
+TARGET_DATE: {TARGET_DATE}
+```
+
+Parse the agent's JSON output as `MESSAGES`.
 
 If no messages found, tell the user briefly and continue to Step 3 with an empty list.
 
