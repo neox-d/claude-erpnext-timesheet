@@ -206,17 +206,34 @@ All resolved — submit, or let me know what to change.
 
 ## Step 4: Submit
 
-Dispatch to the `timesheet-submitter` agent with this prompt (substitute actual values):
+**Before dispatching**, scan ENTRIES and output the submission plan:
 
 ```
-Submit timesheet for {TARGET_DATE}.
+Submitting timesheet for {TARGET_DATE}...
 
+- [x] ~~Task: "{description}" (pre-assigned)~~   ← one per entry where task is already set
+- [ ] Check for existing timesheet on {TARGET_DATE}
+- [ ] Group: "{proposed_group}"                  ← one per unique proposed_group value
+- [ ] Task: "{description}"                      ← one per entry where task is not yet assigned
+- [ ] Submit timesheet
+```
+
+Then dispatch the `timesheet-submitter` agent:
+
+```
 TARGET_DATE: {TARGET_DATE}
 STATUS: {JSON — include username, project, work_hours}
 ENTRIES: {JSON array — each entry with: description, hours, activity_type, project; include task, parent_task, proposed_group only when set}
 ```
 
-Display the agent's output to the user verbatim.
+The agent emits one `STEP:` line per completed action. As each line arrives, re-render the full plan with that item struck through:
 
-**If any MCP call returns `{"error": "auth_failed"}` at any step:** tell the user:
-> Your ERPNext session has expired. Run `/plugin config erpnext-timesheet` to update your credentials, then re-run `/timesheet`.
+| Agent output | Plan update |
+|---|---|
+| `STEP: check → passed` | `- [x] ~~Check for existing timesheet on {TARGET_DATE}~~` |
+| `STEP: check → duplicate_found` | `- [x] ~~Check for existing timesheet on {TARGET_DATE}~~` then stop — output `⚠ A timesheet already exists for {TARGET_DATE}.` and return to Step 3 |
+| `STEP: group → "Name" → ID` | `- [x] ~~Group: "Name" → ID~~` |
+| `STEP: task → "desc" → ID` | `- [x] ~~Task: "desc" → ID~~` |
+| `STEP: submit → TS-XXXX` | `- [x] ~~Submit timesheet → TS-XXXX~~` then output `Done.` |
+| `STEP: error → auth_failed` | Stop — output: **Your ERPNext session has expired. Run `/plugin config erpnext-timesheet` to update your credentials, then re-run `/timesheet`.** |
+| `STEP: error → {message}` | Show the error, ask "Retry?" — if yes, re-dispatch the agent (max 3 retries total); if no, stop |
