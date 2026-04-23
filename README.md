@@ -49,6 +49,12 @@ On first use, Claude connects to your ERPNext instance and prompts you to select
 /timesheet 2026-04-21  — fill a specific date
 ```
 
+## Updating the plugin
+
+```
+! claude plugin update erpnext-timesheet@neox-d-plugins
+```
+
 ## Updating credentials
 
 If your ERPNext password changes, run `/plugin` → Installed → erpnext-timesheet → Configure Options.
