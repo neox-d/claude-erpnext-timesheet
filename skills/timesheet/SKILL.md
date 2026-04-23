@@ -10,7 +10,7 @@ Automate daily ERPNext timesheet filling from your Claude conversation history.
 
 ---
 
-When this skill is invoked, follow these steps exactly. Do not skip steps. Before the draft (Steps 0–2): no narration — no "Starting Step N", no "checking X", no intermediate announcements. The only output before the draft is the setup prompt or announce line. During Step 3: use AskUserQuestion as specified. During Step 4: display the agent's output verbatim.
+When this skill is invoked, follow these steps exactly. Do not skip steps. Before the draft (Steps 0–2): no narration — no "Starting Step N", no "checking X", no intermediate announcements. The only output before the draft is the setup prompt or announce line. During Step 3: use AskUserQuestion as specified. During Step 4: show the timesheet-submitter agent's output verbatim.
 
 ## Step 0: Setup and Date Resolution
 
@@ -86,11 +86,9 @@ Call `listTasks` with `project=STATUS.project` silently. Store as `TASKS`.
 
 For each entry, search `TASKS` recursively by keyword overlap between the entry description and task subjects:
 
-- **✓ resolved (existing task)** — exactly one task has clear keyword overlap. Set `entry.task = task.name`. If the matched task has a parent, set `entry.parent_task = task.parent_task`.
-- **✓ resolved (new task, group known)** — zero tasks match AND exactly one group has clear keyword overlap with the description. Set `entry.parent_task = group.name`, leave `entry.task` unset. Set `entry.resolved = true`.
+- **✓ resolved (existing task)** — exactly one task has clear keyword overlap. Set `entry.task = task.name`. If the matched task has a parent, set `entry.parent_task = task.parent_task`. Set `entry.resolved = true`. Set `entry.cluster_id = null`.
+- **✓ resolved (new task, group known)** — zero tasks match AND exactly one group has clear keyword overlap with the description. Set `entry.parent_task = group.name`, leave `entry.task` unset. Set `entry.resolved = true`. Set `entry.cluster_id = null`.
 - **⚠ unresolved** — zero matches with no clear group fit, OR two or more tasks share similar keyword overlap (ambiguous). Set `entry.resolved = false`.
-
-Entries that are ✓ resolved have `entry.resolved = true`.
 
 **Cluster unresolved entries:**
 
