@@ -204,26 +204,23 @@ All resolved — submit, or let me know what to change.
 
 **Empty entries:** if user tries to submit with no entries, ask them to add some first.
 
-## Step 4: Duplicate Check + Submit
+## Step 4: Submit
 
 Call `checkExisting` with `date=TARGET_DATE` silently.
 
 If `exists` is `true`: "A timesheet already exists for TARGET_DATE — submit anyway?" If no, return to Step 3.
 
-**Auto-create tasks for unassigned entries** in this order. Only process entries where `task` is not yet assigned — entries with `task` already set skip directly to step 4 (assign names).
+Dispatch to the `timesheet-submitter` agent with this prompt (substitute actual values):
 
-1. **New groups first** — for entries with `proposed_group` set: call `createTask` with `subject=proposed_group`, `description=proposed_group`, `project=entry.project (or STATUS.project if not set)`, `hours=0`, `date=TARGET_DATE`, `is_group=True`. Collect returned names. For each such entry, update its `parent_task` to the returned name (the actual ERPNext task ID) before proceeding to step 2.
-2. **Child tasks** — for entries with `parent_task` set (either an existing group name or a name returned in step 1): call `createTask` with `parent_task` set, `project=entry.project (or STATUS.project if not set)`, `is_group=False`.
-3. **Root tasks** — for entries with neither `parent_task` nor `proposed_group` set: call `createTask` with no parent, `project=entry.project (or STATUS.project if not set)`, `is_group=False`.
-4. Assign all returned task names to their entries before calling `submitTimesheet`.
+```
+Submit timesheet for {TARGET_DATE}.
 
-After all are created, show a brief list: `TASK-XXXX — subject` for each. Print any `notes`.
+TARGET_DATE: {TARGET_DATE}
+STATUS: {JSON — include username, project, work_hours}
+ENTRIES: {JSON array — each entry with: description, hours, activity_type, project, task (if set), parent_task (if set), proposed_group (if set)}
+```
 
-Call `submitTimesheet` with `date=TARGET_DATE` and `entries=ENTRIES`. Each entry must include `description`, `hours`, `activity_type`; include `task` only if assigned.
-
-Success: `Submitted — TS-XXXX`
-
-Failure: show the error, ask "Retry?" Max 3 attempts. After 3, tell the user to check their ERPNext connection.
+Display the agent's output to the user verbatim as it arrives.
 
 **If any MCP call returns `{"error": "auth_failed"}` at any step:** tell the user:
 > Your ERPNext session has expired. Run `/plugin config erpnext-timesheet` to update your credentials, then re-run `/timesheet`.
