@@ -70,7 +70,7 @@ From `MESSAGES`, identify distinct work themes. Create entries where:
 - **description**: concise professional summary, max 80 chars, no filler phrases ("worked on", "helped with")
 - **hours**: `STATUS.work_hours / number_of_tasks`, rounded to 1 decimal; last entry absorbs rounding remainder so total equals `work_hours` exactly
 - **activity_type**: `STATUS.default_activity`
-- **task**: not set yet — assigned via auto-matching below
+- **project**: `STATUS.project` (default; may be overridden per entry during Step 3)
 
 Grouping rules:
 - Merge closely related messages (e.g. "fix bug" + "write test for fix" = one entry)
@@ -82,17 +82,19 @@ Call `listTasks` with `project=STATUS.project` silently. Store as `TASKS`.
 
 **Identify overdue tasks:** walk `TASKS` recursively; collect nodes where `exp_end_date` is non-empty and `exp_end_date < TARGET_DATE`. (Completed and Cancelled tasks are excluded at fetch time.)
 
-**Auto-match:** for each entry, find the closest task in `TASKS` by keyword overlap. Walk `TASKS` recursively — groups and leaves are both valid match targets. Assign if a good match exists; leave unassigned otherwise.
+**Auto-match and classify each entry:**
 
-**Group placement:** For each entry, determine where a new task will be placed if one must be created:
+For each entry, search `TASKS` recursively by keyword overlap between the entry description and task subjects:
 
-1. If `task` points to a group (`is_group=1`) and keyword overlap with that group is vague (the group was the closest available but not a clear match) → demote: clear `task`, set `parent_task` to that group's name.
-2. For entries with no `task` → walk `TASKS` recursively to find the best-fit group by keyword overlap:
-   - Clear group match → set `parent_task` to that group's name
-   - No good group match → propose a new group subject → set `proposed_group`
-3. Entries where no group is semantically appropriate → leave `parent_task` and `proposed_group` unset (root level).
+- **✓ resolved (existing task)** — exactly one task has clear keyword overlap. Set `entry.task = task.name`. If the matched task has a parent, set `entry.parent_task = task.parent_task`.
+- **✓ resolved (new task, group known)** — zero tasks match AND exactly one group has clear keyword overlap with the description. Set `entry.parent_task = group.name`, leave `entry.task` unset. Set `entry.resolved = true`.
+- **⚠ unresolved** — zero matches with no clear group fit, OR two or more tasks share similar keyword overlap (ambiguous). Set `entry.resolved = false`.
 
-Apply rules 1–3 in order. After all three rules are evaluated, store the final state on each entry in `ENTRIES`. The postcondition is: at most one of `task`, `parent_task`, `proposed_group` is set per entry.
+Entries that are ✓ resolved have `entry.resolved = true`.
+
+**Cluster unresolved entries:**
+
+After classifying all entries, group the ⚠ entries by shared topic keywords (e.g. entries mentioning "MCP", "plugin", "auth" form a cluster). Store each cluster as a list of entry indices. Assign each ⚠ entry a `cluster_id` (a short label like "mcp-work"); singletons get `cluster_id = null`.
 
 Store synthesized entries as `ENTRIES`.
 
