@@ -51,11 +51,7 @@ On first use, Claude connects to your ERPNext instance and prompts you to select
 
 ## Updating credentials
 
-If your ERPNext password changes:
-
-```
-/plugin config erpnext-timesheet
-```
+If your ERPNext password changes, run `/plugin` → Installed → erpnext-timesheet → Configure Options.
 
 ## License
 
