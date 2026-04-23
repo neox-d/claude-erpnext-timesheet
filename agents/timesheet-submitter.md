@@ -36,21 +36,21 @@ Call `checkExisting` with `date=TARGET_DATE`.
 First, deduplicate: collect the unique `proposed_group` values across all qualifying entries. Create each unique group only once, then apply the returned task name to all entries that share that `proposed_group`.
 
 For each unique `proposed_group` in order:
-- Call `createTask` with `subject=proposed_group`, `description=proposed_group`, `project` from the first entry with this group (fall back to `STATUS.project` if not set), `hours=0`, `date=TARGET_DATE`, `is_group=True`
+- Call `createTask` with `subject=proposed_group`, `description=proposed_group`, `project` from the first entry with this group (fall back to `STATUS.project` if not set), `hours=0`, `date=TARGET_DATE`, `is_group=True`, `planned_completion_date` from `entry.proposed_group_date` if set
 - Assign the returned task name to `entry.parent_task` for every entry with this `proposed_group`, then clear `proposed_group` on all of them.
 - Output: `STEP: group → "{proposed_group}" → {returned_name}`
 
 **2c. Create child tasks** (entries where `parent_task` is set and `task` is not yet assigned — skip entries where `task` is already set)
 
 For each such entry in order:
-- Call `createTask` with `subject=entry.description`, `description=entry.description`, `project=entry.project` (fall back to `STATUS.project`), `hours=entry.hours`, `date=TARGET_DATE`, `parent_task=entry.parent_task`
+- Call `createTask` with `subject=entry.description`, `description=entry.description`, `project=entry.project` (fall back to `STATUS.project`), `hours=entry.hours`, `date=TARGET_DATE`, `parent_task=entry.parent_task`, `planned_completion_date` from `entry.planned_completion_date` if set
 - Set `entry.task` to the returned name.
 - Output: `STEP: task → "{description}" → {returned_name}`
 
 **2d. Create root-level tasks** (entries where `task` is not yet assigned and `parent_task` is not set)
 
 For each such entry in order:
-- Call `createTask` with `subject=entry.description`, `description=entry.description`, `project=entry.project` (fall back to `STATUS.project`), `hours=entry.hours`, `date=TARGET_DATE`
+- Call `createTask` with `subject=entry.description`, `description=entry.description`, `project=entry.project` (fall back to `STATUS.project`), `hours=entry.hours`, `date=TARGET_DATE`, `planned_completion_date` from `entry.planned_completion_date` if set
 - Set `entry.task` to the returned name.
 - Output: `STEP: task → "{description}" → {returned_name}`
 

@@ -154,7 +154,7 @@ Process clusters before singletons.
 Use `AskUserQuestion`:
 - Question: `Entries {n1}, {n2}, ... seem related to {inferred topic} ({entry.project}) — could not auto-match. What should we do?`
 - Options:
-  1. `Create Task Group "{suggested name}"` — set `entry.proposed_group` to the suggested name for all entries in the cluster; mark all resolved
+  1. `Create Task Group "{suggested name}"` — set `entry.proposed_group` to the suggested name for all entries in the cluster; then ask for planned completion date using `AskUserQuestion` (`Task Group "{name}" — planned completion date?` with options: TARGET_DATE, end-of-week, end-of-month, `Other (I'll type it)`); set `entry.proposed_group_date` on all cluster entries; mark all resolved
   2. `Use existing Task Group` — follow up with a second `AskUserQuestion` listing existing Task Groups from `TASKS` for `entry.project` (default project); set `entry.parent_task` for all cluster entries; set `entry.resolved = true` for all cluster entries
   3. `No Task Group (root-level tasks)` — clear `parent_task` and `proposed_group` on all cluster entries; mark all resolved
   4. `Split — handle each separately` — treat each cluster entry as a singleton below
@@ -174,7 +174,8 @@ Use `AskUserQuestion`:
 
 If `Create new Task Group` selected:
 - Derive a suggested Task Group name from the entry description (short, title-case, topic-focused — e.g. "MCP Plugin Work", "Auth Refactor"). Use `AskUserQuestion` with the question `Name for this Task Group?` and options: the suggested name first, then `Rename (I'll type it)`. If `Rename` selected, ask for the name as a plain conversational message and wait for their reply; then echo `Using "{name}".` before continuing. Set `entry.proposed_group` to the chosen name.
-- Immediately offer to pull in other ⚠ entries that don't yet have a Task Group: use `AskUserQuestion` listing each remaining entry where `resolved = false` and `parent_task` and `proposed_group` are both unset — as a multi-select. For each entry selected, set `entry.proposed_group` to the same name and mark `entry.resolved = true`, skipping their Q2/Q3.
+- Ask for the Task Group planned completion date. Use `AskUserQuestion` with the question `Task Group "{name}" — planned completion date?` and options: `{TARGET_DATE}` (the target date), end-of-week date (auto-compute from TARGET_DATE), end-of-month date (auto-compute from TARGET_DATE), `Other (I'll type it)`. If `Other`, ask as a plain conversational message and wait for the reply. Set `entry.proposed_group_date` to the chosen date.
+- Immediately offer to pull in other ⚠ entries that don't yet have a Task Group: use `AskUserQuestion` listing each remaining entry where `resolved = false` and `parent_task` and `proposed_group` are both unset — as a multi-select. For each entry selected, set `entry.proposed_group` to the same name, `entry.proposed_group_date` to the same date, and mark `entry.resolved = true`, skipping their Q2/Q3.
 
 If an existing Task Group selected: set `entry.parent_task = group.name`.
 If `No Task Group`: leave both unset; mark `entry.resolved = true`.
@@ -188,7 +189,7 @@ Use `AskUserQuestion`:
   - Last option: `New task (create one under {Task Group name or "root"})`
 
 If an existing task selected: set `entry.task = task.name`. Mark `entry.resolved = true`.
-If `New task`: leave `entry.task` unset. Mark `entry.resolved = true`.
+If `New task`: leave `entry.task` unset. Ask for planned completion date using `AskUserQuestion` with the question `Entry N — planned completion date?` and options: `{TARGET_DATE}` (the target date), end-of-week date (auto-compute from TARGET_DATE), end-of-month date (auto-compute from TARGET_DATE), `Other (I'll type it)`. If `Other`, ask as a plain conversational message. Set `entry.planned_completion_date` to the chosen date. Mark `entry.resolved = true`.
 
 **After all entries resolved:**
 

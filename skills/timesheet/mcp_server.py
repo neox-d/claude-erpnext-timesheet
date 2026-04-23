@@ -154,14 +154,18 @@ class ERPNextClient:
         }
         if task_input.get("parent_task"):
             doc["parent_task"] = task_input["parent_task"]
+        planned = task_input.get("planned_completion_date") or task_input["date"]
         if is_group:
             doc["is_group"] = 1
             doc["status"] = "Open"
+            doc["expected_time"] = 1
+            doc["exp_start_date"] = task_input["date"]
+            doc["custom_planned_completion_date"] = planned
         else:
             doc["expected_time"] = task_input["hours"]
             doc["exp_start_date"] = task_input["date"]
-            doc["exp_end_date"] = task_input["date"]
-            doc["custom_planned_completion_date"] = task_input["date"]
+            doc["exp_end_date"] = planned
+            doc["custom_planned_completion_date"] = planned
             doc["status"] = "Completed"
         try:
             result = self._request("POST", "/api/resource/Task", json=doc)
@@ -616,7 +620,8 @@ def listProjects() -> list:
 
 @mcp.tool()
 def createTask(subject: str, description: str, project: str, hours: float, date: str,
-               parent_task: str = None, is_group: bool = False) -> dict:
+               parent_task: str = None, is_group: bool = False,
+               planned_completion_date: str = None) -> dict:
     """Create a task in ERPNext. Auto-extends project end date on InvalidDates errors."""
     try:
         name, notes = _get_client().create_task({
@@ -627,6 +632,7 @@ def createTask(subject: str, description: str, project: str, hours: float, date:
             "date": date,
             "parent_task": parent_task,
             "is_group": is_group,
+            "planned_completion_date": planned_completion_date,
         })
         return {"name": name, "notes": notes}
     except requests.HTTPError as e:
