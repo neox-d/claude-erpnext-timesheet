@@ -66,24 +66,23 @@ Proceed to Step 1.
 
 ## Step 1: Read Work Context
 
-**If the user specified a different source** (git commits, manual description, a file), use that instead — run `git log`, read files, or ask. Store the gathered context as `MESSAGES`.
+**If the user specified a different source** (git commits, manual description, a file), use that instead — run `git log`, read files, or ask. Store the gathered context as `RAW_CONTEXT` and leave `ENTRIES` unset.
 
 Otherwise, dispatch the `history-reader` agent:
 
 ```
 TARGET_DATE: {TARGET_DATE}
+STATUS: {STATUS as JSON — include project, work_hours, default_activity}
 ```
 
-Parse the agent's JSON output as `MESSAGES`.
-
-If no messages found, tell the user briefly and continue to Step 3 with an empty list.
+Store the agent's JSON output directly as `ENTRIES`. If `ENTRIES` is `[]` or empty, tell the user briefly and continue to Step 3 with no entries.
 
 Call TaskUpdate on `TASK_READ`, status: `completed`.
 Call TaskUpdate on `TASK_SYNTH`, status: `in_progress`.
 
-## Step 2: Synthesize + Fetch Tasks
+## Step 2: Fetch Tasks + Match Entries
 
-From `MESSAGES`, identify distinct work themes. Create entries where:
+If `ENTRIES` is already set from Step 1 (agent output), skip to `listTasks`. Otherwise, synthesize from `RAW_CONTEXT`:
 - **description**: concise professional summary, max 80 chars, no filler phrases ("worked on", "helped with")
 - **hours**: `STATUS.work_hours / number_of_tasks`, rounded to 1 decimal; last entry absorbs rounding remainder so total equals `work_hours` exactly
 - **activity_type**: `STATUS.default_activity`
