@@ -20,7 +20,7 @@ Run `/timesheet` at the end of the day and Claude will:
 ## Installation
 
 ```
-/plugin install erpnext-timesheet@neox-d-plugins
+! claude plugin install erpnext-timesheet@neox-d-plugins
 ```
 
 Claude Code will prompt for your ERPNext credentials:
