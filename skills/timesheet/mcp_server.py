@@ -376,7 +376,7 @@ def get_today_messages(tz=None, target_date=None) -> list:
                     except json.JSONDecodeError:
                         continue
 
-                    if entry.get("type") not in ("user", "assistant"):
+                    if entry.get("type") != "user":
                         continue
 
                     ts_str = entry.get("timestamp", "")
@@ -389,18 +389,16 @@ def get_today_messages(tz=None, target_date=None) -> list:
                         continue
 
                     text = parse_content_blocks(entry.get("message", {}).get("content", ""))
-                    if not text:
+                    if not text or len(text) <= 30:
                         continue
 
                     # Filter noise
                     if any(text.startswith(p) for p in _NOISE_PREFIXES):
                         continue
-                    if entry["type"] == "assistant" and len(text) < 20:
-                        continue
 
                     messages.append({
-                        "role": entry["type"],
-                        "text": text[:500],
+                        "role": "user",
+                        "text": text[:300],
                         "cwd": entry.get("cwd", ""),
                         "timestamp": ts_local.isoformat(),
                     })
