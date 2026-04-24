@@ -60,6 +60,18 @@ On first use, Claude connects to your ERPNext instance and prompts you to select
 
 If your ERPNext password changes, run `/plugin` → Installed → erpnext-timesheet → Configure Options.
 
+## Uninstalling
+
+```
+/plugin uninstall erpnext-timesheet@neox-d-plugins
+```
+
+Then remove the settings file:
+
+```
+rm ~/.claude/timesheet.json
+```
+
 ## License
 
 MIT
