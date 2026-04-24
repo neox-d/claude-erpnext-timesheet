@@ -20,7 +20,8 @@ Run `/timesheet` at the end of the day and Claude will:
 ## Installation
 
 ```
-! claude plugin install erpnext-timesheet@neox-d-plugins
+/plugin marketplace add neox-d@claude-plugins
+/plugin install erpnext-timesheet@neox-d-plugins
 ```
 
 Claude Code will prompt for your ERPNext credentials:
@@ -52,7 +53,7 @@ On first use, Claude connects to your ERPNext instance and prompts you to select
 ## Updating the plugin
 
 ```
-! claude plugin update erpnext-timesheet@neox-d-plugins
+/plugin marketplace update neox-d-plugins
 ```
 
 ## Updating credentials
