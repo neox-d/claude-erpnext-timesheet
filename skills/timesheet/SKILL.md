@@ -112,7 +112,6 @@ After classifying all entries, group the ⚠ entries by shared topic keywords (e
 
 Store synthesized entries as `ENTRIES`.
 
-Call TaskUpdate on `TASK_SYNTH`, status: `completed`.
 Call TaskUpdate on `TASK_DRAFT`, status: `in_progress`.
 
 ## Step 3: Draft Review
@@ -139,11 +138,13 @@ TARGET_DATE — Xh total
 N entries need matching — resolving below.
 ```
 
+Call TaskUpdate on `TASK_SYNTH`, status: `completed`.
+
 Rules:
 - Project is **always shown** — never omitted, even on single-project days.
 - Task Group field: existing Task Group name (plain text), proposed new Task Group as `[new "Name"]`, omitted as `/ ? needs matching` if unknown.
 - Task field: `TASK-XXXX` (matched), `TASK-XXXX ⚠ Nd` (overdue matched), `new task` (will create), `? needs matching` (unresolved).
-- Show `N entries need matching — resolving below.` only if N > 0. If all resolved from the start, show `All resolved — submit, or let me know what to change.` instead.
+- Show `N entries need matching — resolving below.` only if N > 0. If all resolved from the start, omit the footer line — the review prompt below follows immediately.
 
 **Interactive resolution (only if ⚠ entries exist):**
 
@@ -191,9 +192,9 @@ Use `AskUserQuestion`:
 If an existing task selected: set `entry.task = task.name`. Mark `entry.resolved = true`.
 If `New task`: leave `entry.task` unset. Ask for planned completion date using `AskUserQuestion` with the question `Entry N — planned completion date?` and options: `{TARGET_DATE}` (the target date), end-of-week date (auto-compute from TARGET_DATE), end-of-month date (auto-compute from TARGET_DATE), `Other (I'll type it)`. If `Other`, ask as a plain conversational message. Set `entry.planned_completion_date` to the chosen date. Mark `entry.resolved = true`.
 
-**After all entries resolved:**
+**After all entries resolved** (or immediately if all resolved from the start):
 
-Re-render the full draft with `✓` on all entries:
+Re-render the full draft with `✓` on all entries (skip re-render if nothing changed from the initial display):
 
 ```
 TARGET_DATE — Xh total
@@ -204,10 +205,27 @@ TARGET_DATE — Xh total
 ✓ 2. [Xh] Description two
       Activity  ·  PROJ-XXXX / [new "Group Name"] / new task
 ──────────────────────────────────────────────────────────────
-All resolved — submit, or let me know what to change.
 ```
 
-**Conversational edits** (handle at any point):
+Use `AskUserQuestion`:
+- Question: `How does this look?`
+- Options: `Looks fine` · `Make changes`
+
+If `Make changes`: wait for a freeform edit instruction. Apply it (see conversational edits below), re-render the draft, then show this `AskUserQuestion` again.
+
+If `Looks fine`:
+- **Hours mismatch:** if total ≠ `STATUS.work_hours`, note it before proceeding: "Total is Xh, default is Yh — submit anyway?"
+- **Empty entries:** if no entries, ask the user to add some first; return to `Make changes` flow.
+- Use `AskUserQuestion`:
+  - Question: `Submit timesheet for {TARGET_DATE}?`
+  - Options: `Submit` · `Cancel`
+- If `Cancel`: stop.
+- If `Submit`:
+  - Call TaskUpdate on `TASK_DRAFT`, status: `completed`.
+  - Call TaskUpdate on `TASK_SUBMIT`, status: `in_progress`.
+  - Proceed to Step 4.
+
+**Conversational edits** (applied when user selects "Make changes"):
 
 - Edit description → update entry, re-render draft
 - Delete entry → remove, recalculate hours, re-render draft
@@ -218,16 +236,6 @@ All resolved — submit, or let me know what to change.
 - Change project → set `entry.project`, re-fetch tasks if needed, re-run Q2/Q3 for that entry
 - Redistribute hours → recalculate evenly, re-render draft
 - Move to root → clear both `entry.parent_task` and `entry.proposed_group`, re-render draft
-- "Submit" / "Looks good" / "Go ahead" → Step 4
-
-**Hours mismatch:** if total ≠ `STATUS.work_hours` at approval, note it: "Total is Xh, default is Yh — proceed?" and wait.
-
-**Empty entries:** if user tries to submit with no entries, ask them to add some first.
-
-When the user approves:
-
-Call TaskUpdate on `TASK_DRAFT`, status: `completed`.
-Call TaskUpdate on `TASK_SUBMIT`, status: `in_progress`.
 
 ## Step 4: Submit
 
