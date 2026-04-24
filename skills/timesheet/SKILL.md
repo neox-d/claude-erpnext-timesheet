@@ -114,16 +114,19 @@ Store synthesized entries as `ENTRIES`.
 
 ## Step 3: Draft Review
 
-If overdue tasks were identified in Step 2, list them before the draft:
+Do these three sub-steps in strict order — do not call any tool until the draft text has been output to the user:
+
+**3a. Output the draft text.**
+
+If overdue tasks were identified in Step 2, list them first:
 > **Overdue tasks:** TASK-XXXX — subject (N days overdue), ...
 
-**Display the draft** using these rules:
-
-- Each entry is two lines. Status marker at column 0 (`✓` resolved, `⚠` needs matching).
-- Project is **always shown** — never omitted, even on single-project days.
-- Task Group field: existing Task Group name (plain text), proposed new Task Group as `[new "Name"]`, omitted as `/ ? needs matching` if unknown.
-- Task field: `TASK-XXXX` (matched), `TASK-XXXX ⚠ Nd` (overdue matched), `new task` (will create), `? needs matching` (unresolved).
-- Footer: show `N entries need matching — resolving below.` only if N > 0; omit if all resolved.
+Draft format — each entry is two lines, status marker at column 0:
+- `✓` resolved, `⚠` needs matching
+- Project is **always shown**.
+- Task Group field: existing name, `[new "Name"]` for proposed, `/ ? needs matching` if unknown.
+- Task field: `TASK-XXXX`, `TASK-XXXX ⚠ Nd` (overdue), `new task`, or `? needs matching`.
+- Footer: `N entries need matching — resolving below.` only if N > 0; omit if all resolved.
 
 ```
 TARGET_DATE — Xh total
@@ -140,9 +143,9 @@ TARGET_DATE — Xh total
 N entries need matching — resolving below.
 ```
 
-**After rendering the draft:**
-Call TaskUpdate on `TASK_SYNTH`, status: `completed`.
-Call TaskUpdate on `TASK_DRAFT`, status: `in_progress`.
+**3b. Only after the draft text is output:** Call TaskUpdate on `TASK_SYNTH`, status: `completed`.
+
+**3c. Then:** Call TaskUpdate on `TASK_DRAFT`, status: `in_progress`.
 
 **Interactive resolution (only if ⚠ entries exist):**
 
