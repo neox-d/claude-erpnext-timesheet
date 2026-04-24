@@ -112,8 +112,6 @@ After classifying all entries, group the ⚠ entries by shared topic keywords (e
 
 Store synthesized entries as `ENTRIES`.
 
-Call TaskUpdate on `TASK_DRAFT`, status: `in_progress`.
-
 ## Step 3: Draft Review
 
 If overdue tasks were identified in Step 2, list them before the draft:
@@ -142,7 +140,9 @@ TARGET_DATE — Xh total
 N entries need matching — resolving below.
 ```
 
-**After rendering the draft:** Call TaskUpdate on `TASK_SYNTH`, status: `completed`.
+**After rendering the draft:**
+Call TaskUpdate on `TASK_SYNTH`, status: `completed`.
+Call TaskUpdate on `TASK_DRAFT`, status: `in_progress`.
 
 **Interactive resolution (only if ⚠ entries exist):**
 
