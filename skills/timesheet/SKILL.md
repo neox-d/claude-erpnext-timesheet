@@ -119,9 +119,13 @@ Call TaskUpdate on `TASK_DRAFT`, status: `in_progress`.
 If overdue tasks were identified in Step 2, list them before the draft:
 > **Overdue tasks:** TASK-XXXX — subject (N days overdue), ...
 
-**Display the draft:**
+**Display the draft** using these rules:
 
-Each entry is two lines. Status marker at column 0 (`✓` resolved, `⚠` needs matching):
+- Each entry is two lines. Status marker at column 0 (`✓` resolved, `⚠` needs matching).
+- Project is **always shown** — never omitted, even on single-project days.
+- Task Group field: existing Task Group name (plain text), proposed new Task Group as `[new "Name"]`, omitted as `/ ? needs matching` if unknown.
+- Task field: `TASK-XXXX` (matched), `TASK-XXXX ⚠ Nd` (overdue matched), `new task` (will create), `? needs matching` (unresolved).
+- Footer: show `N entries need matching — resolving below.` only if N > 0; omit if all resolved.
 
 ```
 TARGET_DATE — Xh total
@@ -138,13 +142,7 @@ TARGET_DATE — Xh total
 N entries need matching — resolving below.
 ```
 
-Call TaskUpdate on `TASK_SYNTH`, status: `completed`.
-
-Rules:
-- Project is **always shown** — never omitted, even on single-project days.
-- Task Group field: existing Task Group name (plain text), proposed new Task Group as `[new "Name"]`, omitted as `/ ? needs matching` if unknown.
-- Task field: `TASK-XXXX` (matched), `TASK-XXXX ⚠ Nd` (overdue matched), `new task` (will create), `? needs matching` (unresolved).
-- Show `N entries need matching — resolving below.` only if N > 0. If all resolved from the start, omit the footer line — the review prompt below follows immediately.
+**After rendering the draft:** Call TaskUpdate on `TASK_SYNTH`, status: `completed`.
 
 **Interactive resolution (only if ⚠ entries exist):**
 
@@ -214,14 +212,14 @@ Use `AskUserQuestion`:
 If `Make changes`: wait for a freeform edit instruction. Apply it (see conversational edits below), re-render the draft, then show this `AskUserQuestion` again.
 
 If `Looks fine`:
-- **Hours mismatch:** if total ≠ `STATUS.work_hours`, note it before proceeding: "Total is Xh, default is Yh — submit anyway?"
 - **Empty entries:** if no entries, ask the user to add some first; return to `Make changes` flow.
+- **Hours mismatch:** if total ≠ `STATUS.work_hours`, note it: "Total is Xh, default is Yh — submit anyway?"
+- Call TaskUpdate on `TASK_DRAFT`, status: `completed`.
 - Use `AskUserQuestion`:
   - Question: `Submit timesheet for {TARGET_DATE}?`
   - Options: `Submit` · `Cancel`
 - If `Cancel`: stop.
 - If `Submit`:
-  - Call TaskUpdate on `TASK_DRAFT`, status: `completed`.
   - Call TaskUpdate on `TASK_SUBMIT`, status: `in_progress`.
   - Proceed to Step 4.
 
