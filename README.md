@@ -35,6 +35,8 @@ Password      •••••••••••••••
 
 Credentials are stored in `~/.claude/.credentials.json`, separate from your main Claude settings.
 
+> **Note:** The configuration dialog exits if it detects "n" anywhere in your input. Use copy-paste for each field and press Enter on **Save configuration** to confirm.
+
 ## First run
 
 ```
