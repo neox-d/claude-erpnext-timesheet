@@ -5,8 +5,9 @@ A Claude Code plugin that automatically fills your daily ERPNext timesheet from 
 Run `/timesheet` at the end of the day and Claude will:
 1. Read your conversations from the day
 2. Synthesise billable task entries with descriptions and hours
-3. Let you review and edit them (add, delete, edit, assign tasks, adjust hours)
-4. Submit the approved timesheet to ERPNext
+3. Auto-match entries to your ERPNext tasks and task groups
+4. Let you review, edit, and confirm the draft
+5. Submit the approved timesheet to ERPNext
 
 ## Requirements
 
@@ -32,7 +33,7 @@ Username      _______________
 Password      •••••••••••••••
 ```
 
-Credentials are stored securely in your system keychain — never in a plain text file.
+Credentials are stored in `~/.claude/.credentials.json`, separate from your main Claude settings.
 
 ## First run
 
